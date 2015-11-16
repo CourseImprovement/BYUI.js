@@ -5,6 +5,8 @@
  */
 var byui = window.byui = window.byui || {};
 
+byui._included = {};
+
 /**
  * Include other modules into the program
  * @memberOf byui
@@ -12,6 +14,8 @@ var byui = window.byui = window.byui || {};
  * @param  {String} path e.g. ('path') ('ui.button')
  */
 byui.include = function(path){
+	if (byui._included[path]) return;
+	byui._included[path] = true;
 	var comp = path.split(/\./g);
 	var url = 'core/';
 	for (var i = 0; i < comp.length; i++){
@@ -22,6 +26,23 @@ byui.include = function(path){
 		eval(js);
 		byui._ready.loaded++;
 	});
+}
+
+/**
+ * Require a specific namespace
+ * @param  {String} path [description]
+ */
+byui.require = function(path){
+	var spot = byui;
+	var comp = path.split(/\./g);
+	for (var i = 0; i < comp.length; i++){
+		if (spot[comp[i]]){
+			spot = spot[comp[i]];
+		}
+		else{
+			byui.error('Require: ' + path);
+		}
+	}
 }
 
 /**

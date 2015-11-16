@@ -4,14 +4,14 @@
 	<meta charset="UTF-8">
 	<title>BYUI | Lib</title>
 	<script type="text/javascript" src='core/core.js'></script>
-	<script type="text/javascript">
-		
-	byui.include('url.params');
-	byui.include('types');
+	<script type="text/javascript">		
+	byui.include('html.script');
+	byui.include('libs');
+	byui.include('globals');
 	byui.ready(function(){
-		console.log(byui.types.isArray({a:1}));
-	})
-
+		byui.html.script.inject('core/core.js');
+		byui.libs('angular');
+	});
 	</script>
 </head>
 <body>
