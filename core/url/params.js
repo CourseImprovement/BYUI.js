@@ -22,6 +22,7 @@ byui.url.params._current = (function(){
     loc = loc.split('#')[0];
   }
   var hashes = loc.slice(window.location.href.indexOf('?') + 1).split('&');
+  if (hashes.length == 0) return null;
   for(var i = 0; i < hashes.length; i++)
   {
       hash = hashes[i].split('=');
