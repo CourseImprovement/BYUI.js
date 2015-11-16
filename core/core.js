@@ -31,7 +31,7 @@ byui.include = function(path){
 byui._ready = {
 	queue: 0,
 	loaded: 0,
-	interval: null;
+	interval: null
 }
 
 /**
