@@ -5,10 +5,13 @@
 	<title>BYUI | Lib</title>
 	<script type="text/javascript" src='core/core.js'></script>
 	<script type="text/javascript">
-		byui.include('url.params');
-		byui.ready(function(){
-			console.log(byui.url.params.get('*'));
-		})
+		
+	byui.include('url.params');
+	byui.include('types');
+	byui.ready(function(){
+		console.log(byui.types.isArray({a:1}));
+	})
+
 	</script>
 </head>
 <body>
