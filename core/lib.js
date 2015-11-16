@@ -17,6 +17,8 @@ byui.lib._libs = {
  * Include a popular library
  * @param  {String} name Name of the library
  * @return {[type]}      [description]
+ * @function
+ * @memberOf byui.lib
  */
 byui.lib.include = function(name){
 	var url = byui.lib._libs[name];

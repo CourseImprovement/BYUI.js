@@ -66,3 +66,14 @@ byui.types.isNull = function(obj){
 byui.types.isNull = function(obj){
 	return byui.types.base(obj) === 'Number';
 }
+
+/**
+ * Check if all the characters are letters
+ * @param  {String} str String of text
+ * @return {Boolean}   
+ */
+byui.types.allLetters = function(str){
+	if (!byui.types.isString(str)) return false;
+	var matched = str.match(/[a-zA-Z]+/g);
+	return matched && matched[0].length == str.length;
+}
