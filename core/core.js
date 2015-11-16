@@ -13,7 +13,7 @@ var byui = window.byui = window.byui || {};
  */
 byui.include = function(path){
 	var comp = path.split(/\./g);
-	var url = '';
+	var url = 'core/';
 	for (var i = 0; i < comp.length; i++){
 		url += comp[i] + (i == comp.length - 1 ? '.js' : '/');
 	}
