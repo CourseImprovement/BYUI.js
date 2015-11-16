@@ -30,7 +30,8 @@ byui.include = function(path){
  */
 byui._ready = {
 	queue: 0,
-	loaded: 0
+	loaded: 0,
+	interval: null;
 }
 
 /**
@@ -40,10 +41,10 @@ byui._ready = {
  * @memberOf byui
  */
 byui.ready = function(callback){
-	setInterval(function(){
+	byui._ready.interval = setInterval(function(){
 		if (byui._ready.queue == byui._ready.loaded){
 			callback();
-			clearInterval(this);
+			clearInterval(byui._ready.interval);
 		}
 	}, 100);
 }
