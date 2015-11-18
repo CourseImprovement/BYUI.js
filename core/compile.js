@@ -7,5 +7,8 @@ byui.compile = function(){
 }
 
 byui.cleanCode = function(code){
-	var a = 10;
+	var starComments = /(?:\/\*(?:[\s\S]*?)\*\/)|(?:\/\/(?:.*))/g;
+	var lineComments = /\/\/.*/g;
+	var newLines = /\n\n/g;
+	return code.replace(starComments, '').replace(lineComments, '').replace(newLines, '');
 }
