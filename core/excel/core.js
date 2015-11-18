@@ -42,5 +42,5 @@ byui.excel.core.columnLetterToNumber = function(letter){
 	if (letter.length == 1) return letter.charCodeAt(0) - 65;
 	else{
 		if (letter[1] == 'A') return 26;
-		return (letter.charCodeAt(1) - 65) + 25;
+		return (letter.charCodeAt(1) - 65) + 26;
 }
