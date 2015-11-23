@@ -1834,6 +1834,11 @@ byui.fn('asEmail', function(ext){
 	}
 });
 
+byui.fn('asUrl', function(){
+	if (this.errors.length > 0) return '';
+	return this.context;
+});
+
 byui.fn('replace', function(what, withVal){
 	if (withVal == undefined || withVal == null) withVal = '';
 	switch (this.type()){
@@ -1854,6 +1859,30 @@ byui.fn('split', function(val){
 	}
 	return this;
 });
+
+byui.fn('hex', function(decode){
+	if (decode){
+		var j;
+    var hexes = this.context.match(/.{1,4}/g) || [];
+    var back = "";
+    for(j = 0; j<hexes.length; j++) {
+        back += String.fromCharCode(parseInt(hexes[j], 16));
+    }
+
+    this.context = back;
+	}
+	else{
+		var hex, i;
+
+    var result = "";
+    for (i=0; i<this.context.length; i++) {
+        hex = this.context.charCodeAt(i).toString(16);
+        result += ("000"+hex).slice(-4);
+    }
+
+    this.context = result
+	}
+})
 
 byui.extend('strTemplate', function(name, val){
 	byui.strTemplate[name] = val;
