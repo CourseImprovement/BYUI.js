@@ -36,9 +36,11 @@
 		
 	</div>
 	<script type="text/javascript">
-	test(byui('test@gmail.com').exists('@'), 'Email cleaning');
-	test(byui('test@gmail.com').val().indexOf('@') == -1, 'Email cleaning pt 2');
+	test(!byui('test@gmail.com').exists('@'), 'Email cleaning');
+	test(byui('test@gmail.com').val().indexOf('@') == -1, 'Email cleaning @ was removed');
 	test(byui('test@gmail.com').email().indexOf('@') > -1, '.email()');
+	test(byui([1, 1, 1, 1]).avg() == 1, 'Array average simple');
+	test(byui([1, 1, 1, 1]).sum() == 4, 'Array sum simple');
 	</script>
 </body>
 </html>

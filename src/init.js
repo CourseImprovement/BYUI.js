@@ -29,6 +29,8 @@ window.byui = (function(){
 		_byui.fn[name] = obj;
 	}
 
+	_byui.version = version;
+
 	_byui.extend = function(name, obj){
 		_byui[name] = obj;
 	}
