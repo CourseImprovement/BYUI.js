@@ -36,24 +36,26 @@ byui.extend('ajaxPool', function(obj){
 	for (var i = 0; i < this.ajaxConfig.total; i++){
 		var c = this.ajaxConfig.init.calls[i];
 		c.method = !c.method ? 'GET' : c.method;
-		$.ajax({
-			method: c.method,
-			url: c.url,
-			data: c.data,
-			headers: c.headers,
-			success: function(data){
-				if (!c.name) c.name = _this.ajaxConfig.spot + 1;
-				_this.ajaxConfig.success[c.name] = data;
-				checkComplete();
-			},
-			error: function(a, b, c){
-				_this.ajaxConfig.error.push({
-					code: b,
-					msg: c
-				})
-				checkComplete(true);
-			}
-		})
+		(function(idx){
+			$.ajax({
+				method: c.method,
+				url: c.url,
+				data: c.data,
+				headers: c.headers,
+				success: function(data){
+					if (!c.name) c.name = idx;
+					_this.ajaxConfig.success[c.name] = data;
+					checkComplete();
+				},
+				error: function(a, b, c){
+					_this.ajaxConfig.error.push({
+						code: b,
+						msg: c
+					})
+					checkComplete(true);
+				}
+			})
+		})(i);
 	}
 });
 
