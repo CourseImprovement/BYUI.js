@@ -3,12 +3,42 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Test</title>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
 	<script type="text/javascript" src='../build/byui.js'></script>
 	<script type="text/javascript">
-		
+		function test(condition, txt){
+			if (condition){
+				$('#display').append('<div class="success">' + txt + '.........Success</div>');
+			}
+			else{
+				$('#display').append('<div class="fail">' + txt + '.........Fail</div>');
+			}
+		}
 	</script>
+	<style type="text/css">
+		#display{
+			width: 60%;
+	    margin: 0 auto;
+	    display: block;
+	    resize: none;
+	    height: 300px;
+		}
+		.success{
+			color: green;
+		}
+		.fail{
+			color: red;
+		}
+	</style>
 </head>
 <body>
-	
+	<div id="display">
+		
+	</div>
+	<script type="text/javascript">
+	test(byui('test@gmail.com').exists('@'), 'Email cleaning');
+	test(byui('test@gmail.com').val().indexOf('@') == -1, 'Email cleaning pt 2');
+	test(byui('test@gmail.com').email().indexOf('@') > -1, '.email()');
+	</script>
 </body>
 </html>
