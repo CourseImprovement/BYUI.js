@@ -22,9 +22,9 @@ window.byui = (function(){
 		this.type();
 		this.x99909 = true;
 		if (this.baseType == 'object' && this.initalContext.x99909){
-			this.initalContext = this.initalContext.initalContext;
 			this.context = this.initalContext.context;
 			this.baseType = this.initalContext.baseType;
+			this.initalContext = this.initalContext.initalContext;
 		}
 		_byui.fn._internal.clean(this);
 	}
