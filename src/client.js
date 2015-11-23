@@ -1,4 +1,4 @@
-byui.extend('client', function(){
+byui.extend('client', (function(){
 	var nVer = navigator.appVersion;
 	var nAgt = navigator.userAgent;
 	var browserName  = navigator.appName;
@@ -66,4 +66,4 @@ byui.extend('client', function(){
 		browser: browserName + ':' + fullVersion,
 		os: OSName
 	}
-});
+})());

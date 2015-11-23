@@ -322,7 +322,7 @@ byui.fn('each', function(callback){
 		var val = callback(i, this.context[keys[i]]);
 	}
 });
-byui.extend('client', function(){
+byui.extend('client', (function(){
 	var nVer = navigator.appVersion;
 	var nAgt = navigator.userAgent;
 	var browserName  = navigator.appName;
@@ -390,7 +390,7 @@ byui.extend('client', function(){
 		browser: browserName + ':' + fullVersion,
 		os: OSName
 	}
-});
+})());
 /*!
 	Papa Parse
 	v4.1.2
