@@ -50,13 +50,12 @@ byui.extend('strTemplate', function(name, val){
 
 byui.fn('strTemplate', function(name){
 	if (this.baseType != 'object') return '';
-	var template = byui.strTemplate[name];
+	var template = byui(byui.strTemplate[name]);
 	var keys = this.keys();
 	for (var i = 0; i < keys.length; i++){
-		var regex = new RegExp('\$\{' + keys[i] + '\}', 'g');
-		template = template.replace(regex, this.context[keys[i]]);
+		template.replace('\\$\\{' + keys[i] + '\}', this.context[keys[i]]);
 	}
-	return byui(template);
+	return template;
 });
 
 byui.strTemplate('test', 'Hello, my name is ${name}, you are ${years} years old, ${name}')
