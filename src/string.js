@@ -49,15 +49,13 @@ byui.extend('strTemplate', function(name, val){
 });
 
 byui.fn('strTemplate', function(name){
-	if (this.baseType != 'object') return '';
-	var template = byui(byui.strTemplate[name]);
-	var keys = this.keys();
-	for (var i = 0; i < keys.length; i++){
-		template.replace('\\$\\{' + keys[i] + '\}', this.context[keys[i]]);
+	if (this.baseType == 'object'){
+		var template = byui(byui.strTemplate[name]);
+		var keys = this.keys();
+		for (var i = 0; i < keys.length; i++){
+			template.replace('\\$\\{' + keys[i] + '\}', this.context[keys[i]]);
+		}
+		return template;
 	}
-	return template;
+	return byui('');
 });
-
-byui.strTemplate('test', 'Hello, my name is ${name}, you are ${years} years old, ${name}')
-var a = byui({name: 'Chase Willden', years: 1000});
-console.log(a.strTemplate('test').val());
