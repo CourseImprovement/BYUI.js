@@ -1730,8 +1730,8 @@ byui.fn('save', function(name){
 });
 
 byui.extend('get', function(name){
-	return byui(byui.globals[name]);
-})
+	return $(byui.globals[name]);
+});
 byui.extend('createNode', function(name, obj){
 	var keys = Object.keys(obj);
 	var xml = $('<' + name + '></' + name + '>');
