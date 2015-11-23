@@ -69,11 +69,16 @@ window.byui = (function(){
 						a.context = a.context.split('@')[0];
 						break;
 					}
+					else if (a.context.match(_byui.fn._internal.regex.ALL_NUMBERS)){
+						a.context = new Number(a.context).valueOf();
+						break;
+					}
 				}
 			}
 		},
 		regex: {
-			SPACE: / /g
+			SPACE: / /g,
+			ALL_NUMBERS: /[0-9]+$/g
 		}
 	}
 
