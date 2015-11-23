@@ -16,6 +16,7 @@ window.byui = (function(){
 	if (!window.$ || !window.jQuery) throw 'Expected jQuery, please include';
 
 	_byui.init = function(selector){
+		if (selector == null) selector = window;
 		this.initalContext = selector;
 		this.context = this.initalContext;
 		this.errors = [];
@@ -1899,6 +1900,39 @@ byui.fn('strTemplate', function(name){
 	}
 	return byui('');
 });
+byui.fn('url', function(action, param){
+	if (this.type() == 'global'){
+		switch (action){
+			case 'reload': {
+				this.context.location.reload();
+				break;
+			}
+			case 'redirect': {
+				this.context.location.href = param;
+				break;
+			}
+			case 'host': {
+				try {
+					var u = new URL(this.url());
+					return u.hostname;
+				}
+				catch (e){
+					return '';
+				}
+			}
+			case 'base': {
+				try {
+					var u = new URL(this.url());
+					return u.protocol + '//' + u.hostname;
+				}
+				catch (e){
+					return '';
+				}
+			}
+			default: return this.context.location.href;
+		}
+	}
+})
 byui.fn('save', function(name){
 	byui.globals[name] = this.context;
 });

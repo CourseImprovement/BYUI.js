@@ -16,6 +16,7 @@ window.byui = (function(){
 	if (!window.$ || !window.jQuery) throw 'Expected jQuery, please include';
 
 	_byui.init = function(selector){
+		if (selector == null) selector = window;
 		this.initalContext = selector;
 		this.context = this.initalContext;
 		this.errors = [];
