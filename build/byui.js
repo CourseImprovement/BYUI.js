@@ -1840,6 +1840,20 @@ byui.fn('split', function(val){
 	}
 	return this;
 });
+
+byui.extend('strTemplate', function(name, val){
+	byui.strTemplate[name] = val;
+});
+
+byui.fn('strTemplate', function(name){
+	if (this.baseType != 'object') return '';
+	var template = byui(byui.strTemplate[name]);
+	var keys = this.keys();
+	for (var i = 0; i < keys.length; i++){
+		template.replace('${' + keys[i] + '}');
+	}
+	return template;
+});
 byui.fn('save', function(name){
 	byui.globals[name] = this.context;
 });
