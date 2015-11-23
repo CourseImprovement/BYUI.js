@@ -39,7 +39,7 @@ window.byui = (function(){
 		getType: function(obj){
 			var t = Object.prototype.toString.call(obj);
 			var ty = t.replace('[object ', '').replace(']', '').toLowerCase();
-			if (ty == 'htmlanchorelement') return 'xml';
+			if (byui(ty).exists('element')) return 'xml';
 			return ty;
 		},
 		clean: function(a){
