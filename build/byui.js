@@ -1761,6 +1761,7 @@ byui.extend('createNode', function(name, obj){
 
 byui.fn('createNode', function(name, obj){
 	this.context = byui.createNode(name, obj);
+	return this;
 });
 
 byui.extend('registerXmlTemplate', function(obj){
