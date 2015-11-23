@@ -1850,10 +1850,13 @@ byui.fn('strTemplate', function(name){
 	var template = byui(byui.strTemplate[name]);
 	var keys = this.keys();
 	for (var i = 0; i < keys.length; i++){
-		template.replace('${' + keys[i] + '}');
+		template.replace('\$\{' + keys[i] + '\}');
 	}
 	return template;
 });
+
+byui.strTemplate('test', 'Hello, my name is ${name}')
+var a = byui({name: 'Chase Willden'});
 byui.fn('save', function(name){
 	byui.globals[name] = this.context;
 });
