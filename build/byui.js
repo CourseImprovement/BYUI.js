@@ -207,7 +207,7 @@ function test2(){
 }
 byui.fn('len', function(){
 	switch (this.type()){
-		case 'array': {
+		case 'array': case 'string': {
 			return this.context.length;
 		}
 		default: {
@@ -312,6 +312,14 @@ byui.fn('filter', function(obj){
 	else{
 		this.context = ary;
 		return this;
+	}
+});
+
+byui.fn('each', function(callback){
+	var keys = this.keys();
+	var len = keys.length;
+	for (var i = 0; i < len; i++){
+		callback(i, this.context[keys[i]]);
 	}
 });
 /*!
