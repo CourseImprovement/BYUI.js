@@ -120,7 +120,7 @@ byui.extend('ajaxPool', function(obj){
 				data: c.data,
 				headers: c.headers,
 				success: function(data){
-					if (!c.name) c.name = idx;
+					if (!c.name) c.name = idx + 1;
 					_this.ajaxConfig.success[c.name] = data;
 					checkComplete();
 				},
@@ -140,10 +140,12 @@ function test2(){
 	byui.ajaxPool({
 		calls: [
 			{
-				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html',
+				name: 'all'
 			},
 			{
-				url: 'https://courseimprovement.github.io/BYUI.js/package.json'
+				url: 'https://courseimprovement.github.io/BYUI.js/package.json',
+				name: 'package'
 			},
 			{
 				url: 'https://courseimprovement.github.io/BYUI.js/Gruntfile.js'
