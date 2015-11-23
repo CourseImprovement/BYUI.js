@@ -1850,7 +1850,7 @@ byui.fn('strTemplate', function(name){
 	var template = byui(byui.strTemplate[name]);
 	var keys = this.keys();
 	for (var i = 0; i < keys.length; i++){
-		template.replace('\$\{' + keys[i] + '\}');
+		template.replace('\$\{' + keys[i] + '\}', this.context[keys[i]]);
 	}
 	return template;
 });
