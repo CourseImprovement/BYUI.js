@@ -113,13 +113,14 @@ byui.extend('ajaxPool', function(obj){
 	for (var i = 0; i < this.ajaxConfig.total; i++){
 		var c = this.ajaxConfig.init.calls[i];
 		c.method = !c.method ? 'GET' : c.method;
+		var name = i;
 		$.ajax({
 			method: c.method,
 			url: c.url,
 			data: c.data,
 			headers: c.headers,
 			success: function(data){
-				if (!c.name) c.name = c.url;
+				if (!c.name) c.name = name;
 				_this.ajaxConfig.success[c.name] = data;
 				checkComplete();
 			},
