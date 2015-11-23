@@ -20,8 +20,7 @@ window.byui = (function(){
 		this.context = this.initalContext;
 		this.errors = [];
 		this.type();
-		this.name = byui.name;
-		if (this.baseType == 'object' && this.initalContext.name == 'byui'){
+		if (this.baseType == 'object' && this.initalContext.getName() == 'byui'){
 			this.initalContext = this.initalContext.initalContext;
 			this.context = this.initalContext.context;
 			this.baseType = this.initalContext.baseType;
@@ -42,6 +41,10 @@ window.byui = (function(){
 	_byui.extend = function(name, obj){
 		_byui[name] = obj;
 	}
+
+	_byui.fn('getName', function(){
+		return byui.name;
+	})
 
 	_byui.fn._internal = {
 		getType: function(obj){
