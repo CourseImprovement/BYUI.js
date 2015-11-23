@@ -74,6 +74,12 @@
 	var tmp = byui('tmp').save('tmp');
 	test(byui.globals.tmp == 'tmp', 'Global variable saved');
 
+	byui().createNode('test', {
+		top: {
+			next: 'a'
+		}
+	}).save('willdenc');
+
 	</script>
 </body>
 </html>
