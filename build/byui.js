@@ -1728,6 +1728,10 @@ byui.fn('split', function(val){
 byui.fn('save', function(name){
 	byui.globals[name] = this.context;
 });
+
+byui.fn('get', function(name){
+	return byui(byui.globals[name]);
+})
 byui.extend('createNode', function(name, obj){
 	var keys = Object.keys(obj);
 	var xml = $('<' + name + '></' + name + '>');
