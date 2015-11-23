@@ -1711,6 +1711,7 @@ byui.fn('replace', function(what, withVal){
 			this.context = this.context.replace(regex, withVal);
 		}
 	}
+	return this;
 });
 
 byui.fn('split', function(val){
@@ -1720,6 +1721,7 @@ byui.fn('split', function(val){
 			this.context = this.context.split(val);
 		}
 	}
+	return this;
 });
 byui.fn('save', function(name){
 	byui.globals[name] = this.context;
