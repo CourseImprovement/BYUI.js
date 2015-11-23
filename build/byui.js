@@ -320,7 +320,6 @@ byui.fn('each', function(callback){
 	var len = keys.length;
 	for (var i = 0; i < len; i++){
 		var val = callback(i, this.context[keys[i]]);
-		if (val != undefined) this.context[keys[i]] = val;
 	}
 });
 /*!
