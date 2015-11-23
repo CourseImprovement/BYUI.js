@@ -70,7 +70,10 @@ window.byui = (function(){
 						break;
 					}
 					else if (a.context.match(_byui.fn._internal.regex.ALL_NUMBERS)){
-						a.context = new Number(a.context).valueOf();
+						var num = new Number(a.context).valueOf();
+						if (!isNaN(num)){
+							a.context = num;
+						}
 						break;
 					}
 				}
