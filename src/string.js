@@ -53,11 +53,12 @@ byui.fn('strTemplate', function(name){
 	var template = byui.strTemplate[name];
 	var keys = this.keys();
 	for (var i = 0; i < keys.length; i++){
-		template = template.replace('\$\{' + keys[i] + '\}', this.context[keys[i]]);
+		var regex = new RegExp('\$\{' + keys[i] + '\}', 'g');
+		template = template.replace(regex, this.context[keys[i]]);
 	}
 	return byui(template);
 });
 
-byui.strTemplate('test', 'Hello, my name is ${name}')
-var a = byui({name: 'Chase Willden'});
-console.log(a.strTemplate('test'));
+byui.strTemplate('test', 'Hello, my name is ${name}, you are ${years} years old, ${name}')
+var a = byui({name: 'Chase Willden', years: 1000});
+console.log(a.strTemplate('test').val());
