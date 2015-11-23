@@ -39,7 +39,7 @@ window.byui = (function(){
 		getType: function(obj){
 			var t = Object.prototype.toString.call(obj);
 			var ty = t.replace('[object ', '').replace(']', '').toLowerCase();
-			if (ty.indexOf('element') > -1 || ty == 'xmldocument') return 'xml';
+			if (byui(ty).exists('element')) return 'xml';
 			return ty;
 		},
 		clean: function(a){
@@ -1763,11 +1763,6 @@ byui.extend('createNode', function(name, obj){
 		}
 	}
 	return $(xml)[0];
-});
-
-byui.fn('createNode', function(name, obj){
-	this.context = byui.createNode(name, obj);
-	return this;
 });
 
 byui.extend('registerXmlTemplate', function(obj){
