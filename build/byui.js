@@ -119,7 +119,7 @@ byui.extend('ajaxPool', function(obj){
 			data: c.data,
 			headers: c.headers,
 			success: function(data){
-				if (!c.name) c.name = _this.ajaxConfig.spot;
+				if (!c.name) c.name = _this.ajaxConfig.spot + 1;
 				_this.ajaxConfig.success[c.name] = data;
 				checkComplete();
 			},
@@ -133,6 +133,51 @@ byui.extend('ajaxPool', function(obj){
 		})
 	}
 });
+
+function test2(){
+	byui.ajaxPool({
+		calls: [
+			{
+				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+			},
+			{
+				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+			},
+			{
+				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+			},
+			{
+				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+			},
+			{
+				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+			},
+			{
+				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+			},
+			{
+				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+			},
+			{
+				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+			},
+			{
+				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+			},
+			{
+				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+			}
+		],
+		done: function(err, succ){
+			console.log(err);
+			console.log(succ);
+		},
+		stopOnFail: false,
+		progress: function(spot, total){
+			console.log(spot / total);
+		}
+	});
+}
 byui.fn('len', function(){
 	switch (this.type()){
 		case 'array': {
