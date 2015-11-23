@@ -1730,7 +1730,9 @@ byui.fn('save', function(name){
 });
 
 byui.extend('get', function(name){
-	return $(byui.globals[name]);
+	var raw = byui.globals[name];
+	if (byui.fn._internal.getType(raw) == 'xml') return $(raw);
+	return byui(raw);
 });
 byui.extend('createNode', function(name, obj){
 	var keys = Object.keys(obj);
