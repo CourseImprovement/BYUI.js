@@ -113,7 +113,7 @@ byui.extend('ajaxPool', function(obj){
 	for (var i = 0; i < this.ajaxConfig.total; i++){
 		var c = this.ajaxConfig.init.calls[i];
 		c.method = !c.method ? 'GET' : c.method;
-		(function(idx){
+		(function(idx, c){
 			$.ajax({
 				method: c.method,
 				url: c.url,
@@ -132,7 +132,7 @@ byui.extend('ajaxPool', function(obj){
 					checkComplete(true);
 				}
 			})
-		})(i);
+		})(i, c);
 	}
 });
 
