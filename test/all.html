@@ -52,6 +52,14 @@
 		occurance: false
 	}) == '25%', 'Array percentage for sum');
 	test(byui(1.12345).percentage({percision: 1}) == '1.1', 'Percentage number');
+
+	var ary = byui([1, 2, 3, 4, 5, 6]);
+	test(ary.len() == 6, 'Array length == 6');
+	test(ary.exists(1), '1 Exists in array');
+	test(ary.val().length == 6, 'Array val length == 6');
+	test(ary.val(0) == 1, 'Index value == 1');
+	test(ary.same([1, 2, 3, 4, 5, 6]), 'Arrays are the same');
+
 	</script>
 </body>
 </html>
