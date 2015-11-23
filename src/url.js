@@ -44,5 +44,6 @@ byui.extend('params', (function(){
         hash = hashes[i].split('=');
         map[hash[0]] = hash[1];
     }
+    if (hashes[0] == loc) return {};
     return map;
 })());
