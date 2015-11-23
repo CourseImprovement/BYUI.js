@@ -20,8 +20,8 @@ window.byui = (function(){
 		this.context = this.initalContext;
 		this.errors = [];
 		this.type();
-		this.name = _byui.name;
-		if (this.baseType == 'object' && this.initalContext.name == 'byui'){
+		this.x99909 = true;
+		if (this.baseType == 'object' && this.initalContext.x99909){
 			this.initalContext = this.initalContext.initalContext;
 			this.context = this.initalContext.context;
 			this.baseType = this.initalContext.baseType;
