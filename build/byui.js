@@ -29,6 +29,8 @@ window.byui = (function(){
 		_byui.fn[name] = obj;
 	}
 
+	_byui.version = version;
+
 	_byui.extend = function(name, obj){
 		_byui[name] = obj;
 	}
@@ -120,7 +122,7 @@ byui.fn('exists', function(what){
 byui.fn('val', function(idx){
 	switch (this.type()){
 		case 'string': case 'array': {
-			if (!!idx){
+			if (byui.fn._internal.getType(idx) == 'number'){
 				return this.context[idx];
 			}
 		}
