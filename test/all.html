@@ -69,9 +69,10 @@
 	test(byui({a: 'test'}).keys().length == 1, 'Object keys == 1');
 	var name = byui('JOHN SMITH').asName();
 	test(name[0] == 'J' && name[1] == 'o' && name[5] == 'S', 'Name is properly formatted');
-	test(byui(name).replace(' ').exists(' '), 'Replace works');
+	test(!byui(name).replace(' ').exists(' '), 'Replace works');
 	test(byui(name).split(' ').len() == 2, 'Split works');
-
+	var tmp = byui('tmp').save('tmp');
+	test(byui.globals.tmp == 'tmp', 'Global variable saved');
 
 	</script>
 </body>
