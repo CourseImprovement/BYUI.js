@@ -39,7 +39,7 @@ window.byui = (function(){
 		getType: function(obj){
 			var t = Object.prototype.toString.call(obj);
 			var ty = t.replace('[object ', '').replace(']', '').toLowerCase();
-			if (ty.indexOf('element') > -1) return 'xml';
+			if (ty.indexOf('element') > -1 || ty == 'xmldocument') return 'xml';
 			return ty;
 		},
 		clean: function(a){
