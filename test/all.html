@@ -38,9 +38,11 @@
 	<script type="text/javascript">
 	test(!byui('test@gmail.com').exists('@'), 'Email cleaning');
 	test(byui('test@gmail.com').val().indexOf('@') == -1, 'Email cleaning @ was removed');
-	test(byui('test@gmail.com').email().indexOf('@') > -1, '.email()');
+	test(byui('test@gmail.com').asEmail().indexOf('@') > -1, '.email()');
 	test(byui([1, 1, 1, 1]).avg() == 1, 'Array average simple');
 	test(byui([1, 1, 1, 1]).sum() == 4, 'Array sum simple');
+	test(byui('1.2').toNum().val() == 1.2, 'Number conversion');
+	test(byui('1.2a').toNum().val() == '', 'Invalid number conversion');
 	</script>
 </body>
 </html>
