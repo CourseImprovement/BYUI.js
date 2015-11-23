@@ -28,22 +28,6 @@ byui.fn('avg', function(){
 	}
 });
 
-byui.fn('toNum', function(){
-	switch (this.type()){
-		case 'string': {
-			this.context = new Number(this.context).valueOf();
-			if (isNaN(this.context)){
-				this.context = '';
-			}
-			return this;
-		}
-		default: {
-			this.context = '';
-			return this;
-		}
-	}
-});
-
 byui.fn('percent', function(obj){
 	if (!obj.percision) obj.percision = 1;
 	if (obj.occurance == undefined || obj.occurance == null) obj.occurance = true;

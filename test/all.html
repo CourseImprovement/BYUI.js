@@ -41,8 +41,8 @@
 	test(byui('test@gmail.com').asEmail().indexOf('@') > -1, '.email()');
 	test(byui([1, 1, 1, 1]).avg() == 1, 'Array average simple');
 	test(byui([1, 1, 1, 1]).sum() == 4, 'Array sum simple');
-	test(byui('1.2').toNum().val() == 1.2, 'Number conversion');
-	test(byui('1.2a').toNum().val() == '', 'Invalid number conversion');
+	test(byui('1.2').val() == 1.2, 'Number conversion');
+	test(byui('1.2a').val() == '', 'Invalid number conversion');
 	test(byui([1, 2, 2, 1]).percent({
 		val: 1,
 		occurance: true
