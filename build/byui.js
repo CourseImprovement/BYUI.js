@@ -20,6 +20,7 @@ window.byui = (function(){
 		this.context = this.initalContext;
 		this.errors = [];
 		this.type();
+		this.name = byui.name;
 		if (this.baseType == 'object' && this.initalContext.name == 'byui'){
 			this.initalContext = this.initalContext.initalContext;
 			this.context = this.initalContext.context;
