@@ -54,8 +54,8 @@ window.byui = (function(){
 
 	_byui.fn.type = function(expected){
 		if (!!expected) return expected === this.baseType;
-		if (this.baseType) return this.baseType;
 		this.baseType = _byui.fn._internal.getType(this.context);
+		return this.baseType
 	}
 
 	_byui.fn.raw = function(){return this.initalContext;}
