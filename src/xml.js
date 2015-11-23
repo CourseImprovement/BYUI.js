@@ -51,6 +51,13 @@ byui.extend('getTemplate', function(name){
 	return byui.template[name];
 })
 
+byui.fn('encodeXml', function(){
+	if (this.type() == 'string'){
+		this.context = this.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+	}
+	return this;
+})
+
 function test(){
 	var example = {
 		test: {

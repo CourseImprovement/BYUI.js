@@ -53,7 +53,21 @@ window.byui = (function(){
 		clean: function(a){
 			switch (a.type()){
 				case 'string': {
-					if (a.exists('@')) a.context = a.context.split('@')[0];
+					if (a.exists('http')){
+						try{
+							var u = new URL(a.context);
+						}
+						catch (e){
+							var err = 'Invalid URL';
+							a.errors.push(err);
+							console.log(err);
+						}
+						break;
+					}
+					else if (a.exists('@')){
+						a.context = a.context.split('@')[0];
+						break;
+					}
 				}
 			}
 		},
@@ -1916,6 +1930,13 @@ byui.extend('registerXmlTemplate', function(obj){
 
 byui.extend('getTemplate', function(name){
 	return byui.template[name];
+})
+
+byui.fn('encodeXml', function(){
+	if (this.type() == 'string'){
+		this.context = this.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+	}
+	return this;
 })
 
 function test(){
