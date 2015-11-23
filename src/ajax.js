@@ -25,7 +25,7 @@ byui.extend('ajaxPool', function(obj){
 	if (obj.stopOnFail == undefined || obj.stopOnFail == null) obj.stopOnFail = false;
 	var _this = this;
 	function checkComplete(err){
-		if (++_this.ajaxConfig.spot == _this.ajaxConfig.total || err && obj.stopOnFail){
+		if (++_this.ajaxConfig.spot == _this.ajaxConfig.total || (err && obj.stopOnFail)){
 			obj.done(_this.ajaxConfig.error, _this.ajaxConfig.success);
 			return;
 		}
