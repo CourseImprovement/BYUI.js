@@ -2033,7 +2033,12 @@ byui.extend('createNode', function(name, obj){
 	for (var i = 0; i < keys.length; i++){
 		switch (byui.fn._internal.getType(obj[keys[i]])){
 			case 'string': case 'number': case 'boolean': {
-				$(xml).attr(keys[i], obj[keys[i]]);
+				if (keys[i] == '$text'){
+					$(xml).append(obj[keys[i]]);
+				}
+				else{
+					$(xml).attr(keys[i], obj[keys[i]]);
+				}
 				break;
 			}
 			case 'undefined': case 'null':{
