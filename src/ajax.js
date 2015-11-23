@@ -42,7 +42,7 @@ byui.extend('ajaxPool', function(obj){
 			data: c.data,
 			headers: c.headers,
 			success: function(data){
-				if (!c.name) c.name = i;
+				if (!c.name) c.name = c.url;
 				_this.ajaxConfig.success[c.name] = data;
 				checkComplete();
 			},
@@ -64,31 +64,31 @@ function test2(){
 				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
 			},
 			{
-				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+				url: 'https://courseimprovement.github.io/BYUI.js/package.json'
 			},
 			{
-				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+				url: 'https://courseimprovement.github.io/BYUI.js/Gruntfile.js'
 			},
 			{
-				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+				url: 'https://courseimprovement.github.io/BYUI.js/README.md'
 			},
 			{
-				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+				url: 'https://courseimprovement.github.io/BYUI.js/build/byui.js'
 			},
 			{
-				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+				url: 'https://courseimprovement.github.io/BYUI.js/src/ajax.js'
 			},
 			{
-				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+				url: 'https://courseimprovement.github.io/BYUI.js/src/array.js'
 			},
 			{
-				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+				url: 'https://courseimprovement.github.io/BYUI.js/src/csv.js'
 			},
 			{
-				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+				url: 'https://courseimprovement.github.io/BYUI.js/src/init.js'
 			},
 			{
-				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html'
+				url: 'https://courseimprovement.github.io/BYUI.js/src/xml.js'
 			}
 		],
 		done: function(err, succ){
