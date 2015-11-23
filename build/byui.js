@@ -390,7 +390,7 @@ byui.extend('client', function(){
 		browser: browserName + ':' + fullVersion,
 		os: OSName
 	}
-})
+});
 /*!
 	Papa Parse
 	v4.1.2

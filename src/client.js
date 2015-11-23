@@ -66,4 +66,4 @@ byui.extend('client', function(){
 		browser: browserName + ':' + fullVersion,
 		os: OSName
 	}
-})
+});
