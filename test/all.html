@@ -42,7 +42,7 @@
 	test(byui([1, 1, 1, 1]).avg() == 1, 'Array average simple');
 	test(byui([1, 1, 1, 1]).sum() == 4, 'Array sum simple');
 	test(byui('1.2').val() == 1.2, 'Number conversion');
-	test(byui('1.2a').type() == '1.2a', 'Invalid number conversion');
+	test(byui('1.2a').type() == 'string', 'Invalid number conversion');
 	test(byui([1, 2, 2, 1]).percent({
 		val: 1,
 		occurance: true
