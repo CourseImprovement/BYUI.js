@@ -1,9 +1,0 @@
-[submodule "lib/jquery"]
-	path = lib/jquery
-	url = https://github.com/jquery/jquery.git
-[submodule "lib/angular.js"]
-	path = lib/angular.js
-	url = https://github.com/angular/angular.js.git
-[submodule "lib/highcharts.com"]
-	path = lib/highcharts.com
-	url = https://github.com/highslide-software/highcharts.com.git
