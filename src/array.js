@@ -112,6 +112,7 @@ byui.fn('each', function(callback){
 	var keys = this.keys();
 	var len = keys.length;
 	for (var i = 0; i < len; i++){
-		callback(i, this.context[keys[i]]);
+		var val = callback(i, this.context[keys[i]]);
+		if (val != undefined) this.context[keys[i]] = val;
 	}
 });
