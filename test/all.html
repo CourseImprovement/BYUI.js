@@ -43,6 +43,14 @@
 	test(byui([1, 1, 1, 1]).sum() == 4, 'Array sum simple');
 	test(byui('1.2').toNum().val() == 1.2, 'Number conversion');
 	test(byui('1.2a').toNum().val() == '', 'Invalid number conversion');
+	test(byui([1, 2, 2, 1]).percent({
+		val: 1,
+		occurance: true
+	}) == '50%', 'Array percentage for occurance');
+	test(byui([1, 3]).percent({
+		val: 1,
+		occurance: false
+	}) == '25%', 'Array percentage for sum');
 	</script>
 </body>
 </html>
