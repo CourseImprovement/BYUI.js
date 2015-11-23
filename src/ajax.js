@@ -13,7 +13,7 @@
  * 		progress: function(spot, total){}
  * }
  */
-byui.fn('ajaxPool', function(obj){
+byui.extend('ajaxPool', function(obj){
 	if (!byui.fn._internal.getType(obj) == 'object') throw 'Invalid ajaxPool, expected object';
 	this.ajaxConfig = {
 		init: obj,
@@ -42,6 +42,7 @@ byui.fn('ajaxPool', function(obj){
 			data: c.data,
 			headers: c.headers,
 			success: function(data){
+				if (!c.name) c.name = _this.ajaxConfig.spot;
 				_this.ajaxConfig.success[c.name] = data;
 				checkComplete();
 			},
