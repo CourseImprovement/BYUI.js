@@ -1772,6 +1772,10 @@ byui.extend('createNode', function(name, obj){
 	return $(xml)[0];
 });
 
+byui.fn('createNode', function(name, obj){
+	return byui(byui.createNode(name, obj));
+})
+
 byui.extend('registerXmlTemplate', function(obj){
 	if (byui.fn._internal.getType(obj.obj) != 'object') throw 'Expected object';
 	var keys = Object.keys(obj.obj);
