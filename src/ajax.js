@@ -42,7 +42,7 @@ byui.extend('ajaxPool', function(obj){
 			data: c.data,
 			headers: c.headers,
 			success: function(data){
-				if (!c.name) c.name = _this.ajaxConfig.spot + 1;
+				if (!c.name) c.name = i;
 				_this.ajaxConfig.success[c.name] = data;
 				checkComplete();
 			},
@@ -97,7 +97,7 @@ function test2(){
 		},
 		stopOnFail: false,
 		progress: function(spot, total){
-			console.log(spot / total);
+			console.log(Math.floor((spot / total) * 100) + '%');
 		}
 	});
 }
