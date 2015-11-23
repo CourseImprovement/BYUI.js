@@ -60,7 +60,7 @@
 	test(ary.val(0) == 1, 'Index value == 1');
 	test(ary.same([1, 2, 3, 4, 5, 6]), 'Arrays are the same');
 	test(ary.index(1) == 0, 'Array index');
-	test(ary.remove(0).len() == 1, 'Array remove index == 5');
+	test(ary.remove(0).len() == 5, 'Array remove index == 5');
 	test(ary.remove(0, 3).len() == 2, 'Array remove multiple index == 2');
 	test(byui([1, 1, 1, 1, 1, 2]).filter({val: 1, type: 'out'}).len() == 1, 'Array filter out length == 1');
 	test(byui([1, 1, 1, 1, 1, 2]).filter({val: 1, type: 'in'}).len() == 5, 'Array filter in length == 5');
