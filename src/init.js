@@ -38,7 +38,9 @@ window.byui = (function(){
 	_byui.fn._internal = {
 		getType: function(obj){
 			var t = Object.prototype.toString.call(obj);
-			return t.replace('[object ', '').replace(']', '').toLowerCase();
+			var ty = t.replace('[object ', '').replace(']', '').toLowerCase();
+			if (ty == 'htmlanchorelement') return 'xml';
+			return ty;
 		},
 		clean: function(a){
 			switch (a.type()){
