@@ -1933,6 +1933,21 @@ byui.fn('url', function(action, param){
 		}
 	}
 })
+
+byui.extend('params', (function(){
+    var map = {};
+    var loc = window.location.href;
+    if (loc.indexOf('#') > -1){
+      loc = loc.split('#')[0];
+    }
+    var hashes = loc.slice(window.location.href.indexOf('?') + 1).split('&');
+    for(var i = 0; i < hashes.length; i++)
+    {
+        hash = hashes[i].split('=');
+        map[hash[0]] = hash[1];
+    }
+    return map;
+})());
 byui.fn('save', function(name){
 	byui.globals[name] = this.context;
 });
