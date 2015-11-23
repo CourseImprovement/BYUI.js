@@ -7,6 +7,7 @@
 window.byui = (function(){
 
 	var version = '0.2.0',
+			name = 'byui',
 			_byui = function(selector){
 				return new _byui.init(selector);
 			};
@@ -19,6 +20,11 @@ window.byui = (function(){
 		this.context = this.initalContext;
 		this.errors = [];
 		this.type();
+		if (this.baseType == 'object' && this.initalContext.name == 'byui'){
+			this.initalContext = this.initalContext.initalContext;
+			this.context = this.initalContext.context;
+			this.baseType = this.initalContext.baseType;
+		}
 		_byui.fn._internal.clean(this);
 	}
 
@@ -30,6 +36,7 @@ window.byui = (function(){
 	}
 
 	_byui.version = version;
+	_byui.name = name;
 
 	_byui.extend = function(name, obj){
 		_byui[name] = obj;
