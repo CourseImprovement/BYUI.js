@@ -2161,7 +2161,7 @@ byui.extend('getTemplate', function(name){
 
 byui.fn('encodeXml', function(){
 	if (this.type() == 'string'){
-		this.context = this.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+		this.context = this.replace("\&", '&amp;').replace("\<", '&lt;').replace("\>", '&gt;');
 	}
 	return this;
 })
