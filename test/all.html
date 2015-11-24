@@ -29,10 +29,34 @@
 		.fail{
 			color: red;
 		}
+		#byui-tooltip{
+			position: fixed;
+		    background-color: black;
+		    top: 100px;
+		    left: 10px;
+		    z-index: 88888;
+		    color: white;
+		    padding: 9px 16px;
+		    border-radius: 11px;
+		    font-size: 13px;
+		    max-width: 200px;
+		}
+
+		#byui-tooltip:after{
+			content: ' ';
+		    position: absolute;
+		    width: 0;
+		    height: 0;
+		    left: -22px;
+		    bottom: 0px;
+		    border: 22px solid;
+		    border-color: transparent transparent black transparent;
+		}
+
 	</style>
 </head>
 <body>
-	<div id="display">
+	<div id="display" title='This is a test'>
 		
 	</div>
 	<script type="text/javascript">
@@ -79,7 +103,7 @@
 			next: 'a'
 		}
 	}).save('willdenc');
-
+	byui().tooltip('#display');
 	</script>
 </body>
 </html>
