@@ -2071,7 +2071,7 @@ byui.fn('find', function(path){
 byui.fn('createNode', function(name){
 	switch (this.type()){
 		case 'object': {
-			var xml = byui.createNode(name, obj);
+			var xml = byui.createNode(name, this.context);
 			$(this.context).append(xml);
 			break;
 		}
