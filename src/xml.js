@@ -39,9 +39,14 @@ byui.fn('find', function(path){
 	return this;
 })
 
-byui.fn('createNode', function(name, obj){
-	var xml = byui.createNode(name, obj);
-	$(this.context).append(xml);
+byui.fn('createNode', function(name){
+	switch (this.type()){
+		case 'object': {
+			var xml = byui.createNode(name, obj);
+			$(this.context).append(xml);
+			break;
+		}
+	}
 })
 
 byui.extend('registerXmlTemplate', function(obj){

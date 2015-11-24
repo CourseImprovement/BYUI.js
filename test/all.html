@@ -56,7 +56,7 @@
 	</style>
 </head>
 <body>
-	<div id="display" title='This is a test'>
+	<div id="display">
 		
 	</div>
 	<script type="text/javascript">
@@ -97,13 +97,6 @@
 	test(byui(name).split(' ').len() == 2, 'Split works');
 	var tmp = byui('tmp').save('tmp');
 	test(byui.globals.tmp == 'tmp', 'Global variable saved');
-
-	byui().createNode('test', {
-		top: {
-			next: 'a'
-		}
-	}).save('willdenc');
-	byui().tooltip('#display');
 	</script>
 </body>
 </html>
