@@ -47,6 +47,7 @@ byui.fn('createNode', function(name){
 			break;
 		}
 	}
+	return this;
 })
 
 byui.extend('registerXmlTemplate', function(obj){
