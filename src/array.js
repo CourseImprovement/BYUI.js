@@ -53,6 +53,8 @@ byui.fn('exists', function(what){
  * Do we pass the value through?
  */
 byui.fn('val', function(idx){
+	var includeJquery = false;
+	if (byui.fn._internal.getType(idx) == 'string' && idx == 'jquery') includeJquery = true;
 	switch (this.type()){
 		case 'string': case 'array': {
 			if (byui.fn._internal.getType(idx) == 'number'){
@@ -60,6 +62,7 @@ byui.fn('val', function(idx){
 			}
 		}
 		default: {
+			if (includeJquery) return $(this.context);
 			return this.context;
 		}
 	}
