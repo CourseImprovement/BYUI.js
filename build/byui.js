@@ -91,6 +91,10 @@ window.byui = (function(){
 		return this.baseType
 	}
 
+	_byui.fn.$ = function(selector){
+		return $(selector);
+	}
+
 	_byui.fn.raw = function(){return this.initalContext;}
 
 	_byui.init.prototype = _byui.fn;
@@ -1968,6 +1972,17 @@ byui.fn('strTemplate', function(name){
 		return template;
 	}
 	return byui('');
+});
+
+byui.fn('str', function(){
+	switch (this.type()){
+		case 'string': return this.context;
+		case 'number': return this.context + '';
+		case 'date': return this.context.toString();
+		case 'object': return JSON.stringify(this.context);
+		case 'xml': return (new XMLSerializer()).serializeToString(this.context);
+		default: return this.context + '';
+	}
 });
 byui.fn('url', function(action, param){
 	if (this.type() == 'global'){

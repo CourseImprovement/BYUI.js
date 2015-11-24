@@ -88,3 +88,14 @@ byui.fn('strTemplate', function(name){
 	}
 	return byui('');
 });
+
+byui.fn('str', function(){
+	switch (this.type()){
+		case 'string': return this.context;
+		case 'number': return this.context + '';
+		case 'date': return this.context.toString();
+		case 'object': return JSON.stringify(this.context);
+		case 'xml': return (new XMLSerializer()).serializeToString(this.context);
+		default: return this.context + '';
+	}
+});

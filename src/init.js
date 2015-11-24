@@ -91,6 +91,10 @@ window.byui = (function(){
 		return this.baseType
 	}
 
+	_byui.fn.$ = function(selector){
+		return $(selector);
+	}
+
 	_byui.fn.raw = function(){return this.initalContext;}
 
 	_byui.init.prototype = _byui.fn;
