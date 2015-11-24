@@ -43,7 +43,7 @@ byui.fn('createNode', function(name){
 	switch (this.type()){
 		case 'object': {
 			var xml = byui.createNode(name, this.context);
-			$(this.context).append(xml);
+			this.context = xml;
 			break;
 		}
 	}
