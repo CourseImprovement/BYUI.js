@@ -162,53 +162,6 @@ byui.extend('ajaxPool', function(obj){
 		})(i, c);
 	}
 });
-
-function test2(){
-	byui.ajaxPool({
-		calls: [
-			{
-				url: 'https://courseimprovement.github.io/BYUI.js/test/all.html',
-				name: 'all'
-			},
-			{
-				url: 'https://courseimprovement.github.io/BYUI.js/package.json',
-				name: 'package'
-			},
-			{
-				url: 'https://courseimprovement.github.io/BYUI.js/Gruntfile.js'
-			},
-			{
-				url: 'https://courseimprovement.github.io/BYUI.js/README.md'
-			},
-			{
-				url: 'https://courseimprovement.github.io/BYUI.js/build/byui.js'
-			},
-			{
-				url: 'https://courseimprovement.github.io/BYUI.js/src/ajax.js'
-			},
-			{
-				url: 'https://courseimprovement.github.io/BYUI.js/src/array.js'
-			},
-			{
-				url: 'https://courseimprovement.github.io/BYUI.js/src/csv.js'
-			},
-			{
-				url: 'https://courseimprovement.github.io/BYUI.js/src/init.js'
-			},
-			{
-				url: 'https://courseimprovement.github.io/BYUI.js/src/xml.js'
-			}
-		],
-		done: function(err, succ){
-			console.log(err);
-			console.log(succ);
-		},
-		stopOnFail: false,
-		progress: function(spot, total){
-			console.log(Math.floor((spot / total) * 100) + '%');
-		}
-	});
-}
 byui.fn('len', function(){
 	switch (this.type()){
 		case 'array': case 'string': {
@@ -2031,6 +1984,21 @@ byui.fn('str', function(){
 		default: return this.context + '';
 	}
 });
+byui.fn('addFunc', function(func){
+	if (!this.pool) this.pool = [];
+	this.pool.push(func);
+});
+
+byui.extend('threadPool', function(obj){
+	if (!byui.fn._internal.getType(obj) == 'object') throw 'Invalid ajaxPool, expected object';
+	this.ajaxConfig = {
+		init: obj,
+		total: obj.calls.length,
+		spot: 0,
+		success: {},
+		error: []
+	}
+});
 byui.fn('url', function(action, param){
 	if (this.type() == 'global'){
 		switch (action){
@@ -2099,7 +2067,9 @@ byui.extend('createNode', function(name, obj){
 					$(xml).append(obj[keys[i]]);
 				}
 				else{
-					$(xml).attr(keys[i], obj[keys[i]]);
+					if (keys[i].charAt(0) != '_'){
+						$(xml).attr(keys[i], obj[keys[i]]);
+					}
 				}
 				break;
 			}

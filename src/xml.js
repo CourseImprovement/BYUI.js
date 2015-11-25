@@ -8,7 +8,9 @@ byui.extend('createNode', function(name, obj){
 					$(xml).append(obj[keys[i]]);
 				}
 				else{
-					$(xml).attr(keys[i], obj[keys[i]]);
+					if (keys[i].charAt(0) != '_'){
+						$(xml).attr(keys[i], obj[keys[i]]);
+					}
 				}
 				break;
 			}
