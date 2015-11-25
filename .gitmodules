@@ -1,0 +1,3 @@
+[submodule "lib/multithread.js"]
+	path = lib/multithread.js
+	url = https://github.com/keithwhor/multithread.js.git
