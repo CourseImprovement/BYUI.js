@@ -71,6 +71,7 @@ byui.fn('hex', function(decode){
 
     this.context = result
 	}
+	return this;
 })
 
 byui.extend('strTemplate', function(name, val){

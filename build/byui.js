@@ -1956,6 +1956,7 @@ byui.fn('hex', function(decode){
 
     this.context = result
 	}
+	return this;
 })
 
 byui.extend('strTemplate', function(name, val){
@@ -1984,16 +1985,44 @@ byui.fn('str', function(){
 		default: return this.context + '';
 	}
 });
+/**
+ * byui().addFunc(function(){});
+ */
 byui.fn('addFunc', function(func){
-	if (!this.pool) this.pool = [];
-	this.pool.push(func);
+	if (byui.fn._internal.getType(this.context) != 'array') this.context = [];
+	this.context.push(func);
 });
 
-byui.extend('threadPool', function(obj){
+/**
+ * byui().start();
+ */
+byui.fn('start', function(){
+	if (!this.threadPoolSetup) this.poolSetup();
+	var _this = this;
+	for (var i = 0; i < _this.threadPoolSetup.total; i++){
+		(function(idx){
+			setTimeout(function(){
+				if (byui.fn._internal.getType(_this.context[idx]) == 'function'){
+					_this.context[idx]();
+					if (++_this.threadPoolSetup.spot == _this.threadPoolSetup.total){
+						if (_this.threadPoolSetup.init.done) _this.threadPoolSetup.init.done(_this.threadPoolSetup.error, _this.threadPoolSetup.success);
+					}
+				}
+			}, 10);
+		})(i);
+	}
+})
+
+/**
+ * obj = {
+ * 	done: func
+ * }
+ */
+byui.fn('poolSetup', function(obj){
 	if (!byui.fn._internal.getType(obj) == 'object') throw 'Invalid ajaxPool, expected object';
-	this.ajaxConfig = {
+	this.threadPoolSetup = {
 		init: obj,
-		total: obj.calls.length,
+		total: this.context.length,
 		spot: 0,
 		success: {},
 		error: []
@@ -2057,6 +2086,10 @@ byui.extend('get', function(name){
 	if (byui.fn._internal.getType(raw) == 'xml') return $(raw);
 	return byui(raw);
 });
+
+byui.extend('type', function(obj){
+	return byui.fn._internal.getType(obj);
+})
 byui.extend('createNode', function(name, obj){
 	var keys = Object.keys(obj);
 	var xml = $('<' + name + '></' + name + '>');
@@ -2130,7 +2163,7 @@ byui.extend('getTemplate', function(name){
 })
 
 byui.fn('encodeXml', function(){
-	if (this.type() == 'string'){
+	if (this.type() == 'string' && this.context != ''){
 		this.context = this.replace("\&", '&amp;').replace("\<", '&lt;').replace("\>", '&gt;');
 	}
 	return this;

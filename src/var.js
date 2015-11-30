@@ -7,3 +7,7 @@ byui.extend('get', function(name){
 	if (byui.fn._internal.getType(raw) == 'xml') return $(raw);
 	return byui(raw);
 });
+
+byui.extend('type', function(obj){
+	return byui.fn._internal.getType(obj);
+})
