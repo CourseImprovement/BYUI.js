@@ -2163,8 +2163,8 @@ byui.extend('getTemplate', function(name){
 })
 
 byui.fn('encodeXml', function(){
-	if (this.type() == 'string' && this.context != ''){
-		this.context = this.replace("\&", '&amp;').replace("\<", '&lt;').replace("\>", '&gt;');
+	if (this.type() == 'string'){
+		this.context = this.replace("\&", '&amp;').replace("\<", '&lt;').replace("\>", '&gt;').val();
 	}
 	return this;
 })
