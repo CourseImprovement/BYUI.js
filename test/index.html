@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Test</title>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.0.0-beta1/jquery.min.js"></script>
+	<script type="text/javascript" src='../build/byui.js'></script>
+	<script type="text/javascript">
+		function start(){
+			var val = $('#txt').val();
+			var b = byui(val).csv();
+			window.b = b;
+		}
+	</script>
+</head>
+<body>
+	<button onclick='start()'>Start</button>
+	<textarea id="txt"></textarea>
+</body>
+</html>

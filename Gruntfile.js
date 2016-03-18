@@ -6,19 +6,10 @@ module.exports = function(grunt) {
         src: ['src/init.js', 'src/*.js', 'src/*/*.js'],
         dest: 'build/byui.js'
       }
-    },
-    watch: {
-      files: ['src/*.js'],
-      tasks: ['w'],
-      options: {
-        reload: true
-      }
     }
   });
 
   grunt.loadNpmTasks('grunt-contrib-concat');
-  grunt.loadNpmTasks('grunt-contrib-watch');
 
-  grunt.registerTask('default', ['w', 'watch']);
-  grunt.registerTask('w', ['concat']);
+  grunt.registerTask('default', ['concat']);
 };

@@ -10,4 +10,4 @@ byui.extend('get', function(name){
 
 byui.extend('type', function(obj){
 	return byui.fn._internal.getType(obj);
-})
+});

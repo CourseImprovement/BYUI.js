@@ -5,7 +5,8 @@
  * 				url: '',
  * 				data: {},
  * 				headers: {},
- * 				name: ''
+ * 				name: '',
+ * 				callAfter: ''
  * 			}
  * 		],
  * 		done: function(errors, success){},

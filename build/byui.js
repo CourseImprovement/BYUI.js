@@ -82,7 +82,8 @@ window.byui = (function(){
 		regex: {
 			SPACE: / /g,
 			ALL_NUMBERS: /[0-9]+$/g
-		}
+		},
+		shortcuts: []
 	}
 
 	_byui.fn.type = function(expected){
@@ -109,7 +110,8 @@ window.byui = (function(){
  * 				url: '',
  * 				data: {},
  * 				headers: {},
- * 				name: ''
+ * 				name: '',
+ * 				callAfter: ''
  * 			}
  * 		],
  * 		done: function(errors, success){},
@@ -356,1413 +358,34 @@ byui.extend('client', (function(){
 	v4.1.2
 	https://github.com/mholt/PapaParse
 */
-(function(global)
-{
-	'use strict';
-
-	var IS_WORKER = !global.document && !!global.postMessage,
-		IS_PAPA_WORKER = IS_WORKER && /(\?|&)papaworker(=|&|$)/.test(global.location.search),
-		LOADED_SYNC = false, AUTO_SCRIPT_PATH;
-	var workers = {}, workerIdCounter = 0;
-
-	var Papa = {};
-
-	Papa.parse = CsvToJson;
-	Papa.unparse = JsonToCsv;
-
-	Papa.RECORD_SEP = String.fromCharCode(30);
-	Papa.UNIT_SEP = String.fromCharCode(31);
-	Papa.BYTE_ORDER_MARK = '\ufeff';
-	Papa.BAD_DELIMITERS = ['\r', '\n', '"', Papa.BYTE_ORDER_MARK];
-	Papa.WORKERS_SUPPORTED = !IS_WORKER && !!global.Worker;
-	Papa.SCRIPT_PATH = null;	// Must be set by your code if you use workers and this lib is loaded asynchronously
-
-	// Configurable chunk sizes for local and remote files, respectively
-	Papa.LocalChunkSize = 1024 * 1024 * 10;	// 10 MB
-	Papa.RemoteChunkSize = 1024 * 1024 * 5;	// 5 MB
-	Papa.DefaultDelimiter = ',';			// Used if not specified and detection fails
-
-	// Exposed for testing and development only
-	Papa.Parser = Parser;
-	Papa.ParserHandle = ParserHandle;
-	Papa.NetworkStreamer = NetworkStreamer;
-	Papa.FileStreamer = FileStreamer;
-	Papa.StringStreamer = StringStreamer;
-
-	if (typeof module !== 'undefined' && module.exports)
-	{
-		// Export to Node...
-		module.exports = Papa;
-	}
-	else if (isFunction(global.define) && global.define.amd)
-	{
-		// Wireup with RequireJS
-		define(function() { return Papa; });
-	}
-	else
-	{
-		// ...or as browser global
-		global.Papa = Papa;
-	}
-
-	if (global.jQuery)
-	{
-		var $ = global.jQuery;
-		$.fn.parse = function(options)
-		{
-			var config = options.config || {};
-			var queue = [];
-
-			this.each(function(idx)
-			{
-				var supported = $(this).prop('tagName').toUpperCase() === 'INPUT'
-								&& $(this).attr('type').toLowerCase() === 'file'
-								&& global.FileReader;
-
-				if (!supported || !this.files || this.files.length === 0)
-					return true;	// continue to next input element
-
-				for (var i = 0; i < this.files.length; i++)
-				{
-					queue.push({
-						file: this.files[i],
-						inputElem: this,
-						instanceConfig: $.extend({}, config)
-					});
-				}
-			});
-
-			parseNextFile();	// begin parsing
-			return this;		// maintains chainability
-
-
-			function parseNextFile()
-			{
-				if (queue.length === 0)
-				{
-					if (isFunction(options.complete))
-						options.complete();
-					return;
-				}
-
-				var f = queue[0];
-
-				if (isFunction(options.before))
-				{
-					var returned = options.before(f.file, f.inputElem);
-
-					if (typeof returned === 'object')
-					{
-						if (returned.action === 'abort')
-						{
-							error('AbortError', f.file, f.inputElem, returned.reason);
-							return;	// Aborts all queued files immediately
-						}
-						else if (returned.action === 'skip')
-						{
-							fileComplete();	// parse the next file in the queue, if any
-							return;
-						}
-						else if (typeof returned.config === 'object')
-							f.instanceConfig = $.extend(f.instanceConfig, returned.config);
-					}
-					else if (returned === 'skip')
-					{
-						fileComplete();	// parse the next file in the queue, if any
-						return;
-					}
-				}
-
-				// Wrap up the user's complete callback, if any, so that ours also gets executed
-				var userCompleteFunc = f.instanceConfig.complete;
-				f.instanceConfig.complete = function(results)
-				{
-					if (isFunction(userCompleteFunc))
-						userCompleteFunc(results, f.file, f.inputElem);
-					fileComplete();
-				};
-
-				Papa.parse(f.file, f.instanceConfig);
-			}
-
-			function error(name, file, elem, reason)
-			{
-				if (isFunction(options.error))
-					options.error({name: name}, file, elem, reason);
-			}
-
-			function fileComplete()
-			{
-				queue.splice(0, 1);
-				parseNextFile();
-			}
-		}
-	}
-
-
-	if (IS_PAPA_WORKER)
-	{
-		global.onmessage = workerThreadReceivedMessage;
-	}
-	else if (Papa.WORKERS_SUPPORTED)
-	{
-		AUTO_SCRIPT_PATH = getScriptPath();
-
-		// Check if the script was loaded synchronously
-		if (!document.body)
-		{
-			// Body doesn't exist yet, must be synchronous
-			LOADED_SYNC = true;
-		}
-		else
-		{
-			document.addEventListener('DOMContentLoaded', function () {
-				LOADED_SYNC = true;
-			}, true);
-		}
-	}
-
-
-
-
-	function CsvToJson(_input, _config)
-	{
-		_config = _config || {};
-
-		if (_config.worker && Papa.WORKERS_SUPPORTED)
-		{
-			var w = newWorker();
-
-			w.userStep = _config.step;
-			w.userChunk = _config.chunk;
-			w.userComplete = _config.complete;
-			w.userError = _config.error;
-
-			_config.step = isFunction(_config.step);
-			_config.chunk = isFunction(_config.chunk);
-			_config.complete = isFunction(_config.complete);
-			_config.error = isFunction(_config.error);
-			delete _config.worker;	// prevent infinite loop
-
-			w.postMessage({
-				input: _input,
-				config: _config,
-				workerId: w.id
-			});
-
-			return;
-		}
-
-		var streamer = null;
-		if (typeof _input === 'string')
-		{
-			if (_config.download)
-				streamer = new NetworkStreamer(_config);
-			else
-				streamer = new StringStreamer(_config);
-		}
-		else if ((global.File && _input instanceof File) || _input instanceof Object)	// ...Safari. (see issue #106)
-			streamer = new FileStreamer(_config);
-
-		return streamer.stream(_input);
-	}
-
-
-
-
-
-
-	function JsonToCsv(_input, _config)
-	{
-		var _output = '';
-		var _fields = [];
-
-		// Default configuration
-
-		/** whether to surround every datum with quotes */
-		var _quotes = false;
-
-		/** delimiting character */
-		var _delimiter = ',';
-
-		/** newline character(s) */
-		var _newline = '\r\n';
-
-		unpackConfig();
-
-		if (typeof _input === 'string')
-			_input = JSON.parse(_input);
-
-		if (_input instanceof Array)
-		{
-			if (!_input.length || _input[0] instanceof Array)
-				return serialize(null, _input);
-			else if (typeof _input[0] === 'object')
-				return serialize(objectKeys(_input[0]), _input);
-		}
-		else if (typeof _input === 'object')
-		{
-			if (typeof _input.data === 'string')
-				_input.data = JSON.parse(_input.data);
-
-			if (_input.data instanceof Array)
-			{
-				if (!_input.fields)
-					_input.fields =  _input.meta && _input.meta.fields;
-
-				if (!_input.fields)
-					_input.fields =  _input.data[0] instanceof Array
-									? _input.fields
-									: objectKeys(_input.data[0]);
-
-				if (!(_input.data[0] instanceof Array) && typeof _input.data[0] !== 'object')
-					_input.data = [_input.data];	// handles input like [1,2,3] or ['asdf']
-			}
-
-			return serialize(_input.fields || [], _input.data || []);
-		}
-
-		// Default (any valid paths should return before this)
-		throw 'exception: Unable to serialize unrecognized input';
-
-
-		function unpackConfig()
-		{
-			if (typeof _config !== 'object')
-				return;
-
-			if (typeof _config.delimiter === 'string'
-				&& _config.delimiter.length === 1
-				&& Papa.BAD_DELIMITERS.indexOf(_config.delimiter) === -1)
-			{
-				_delimiter = _config.delimiter;
-			}
-
-			if (typeof _config.quotes === 'boolean'
-				|| _config.quotes instanceof Array)
-				_quotes = _config.quotes;
-
-			if (typeof _config.newline === 'string')
-				_newline = _config.newline;
-		}
-
-
-		/** Turns an object's keys into an array */
-		function objectKeys(obj)
-		{
-			if (typeof obj !== 'object')
-				return [];
-			var keys = [];
-			for (var key in obj)
-				keys.push(key);
-			return keys;
-		}
-
-		/** The double for loop that iterates the data and writes out a CSV string including header row */
-		function serialize(fields, data)
-		{
-			var csv = '';
-
-			if (typeof fields === 'string')
-				fields = JSON.parse(fields);
-			if (typeof data === 'string')
-				data = JSON.parse(data);
-
-			var hasHeader = fields instanceof Array && fields.length > 0;
-			var dataKeyedByField = !(data[0] instanceof Array);
-
-			// If there a header row, write it first
-			if (hasHeader)
-			{
-				for (var i = 0; i < fields.length; i++)
-				{
-					if (i > 0)
-						csv += _delimiter;
-					csv += safe(fields[i], i);
-				}
-				if (data.length > 0)
-					csv += _newline;
-			}
-
-			// Then write out the data
-			for (var row = 0; row < data.length; row++)
-			{
-				var maxCol = hasHeader ? fields.length : data[row].length;
-
-				for (var col = 0; col < maxCol; col++)
-				{
-					if (col > 0)
-						csv += _delimiter;
-					var colIdx = hasHeader && dataKeyedByField ? fields[col] : col;
-					csv += safe(data[row][colIdx], col);
-				}
-
-				if (row < data.length - 1)
-					csv += _newline;
-			}
-
-			return csv;
-		}
-
-		/** Encloses a value around quotes if needed (makes a value safe for CSV insertion) */
-		function safe(str, col)
-		{
-			if (typeof str === 'undefined' || str === null)
-				return '';
-
-			str = str.toString().replace(/"/g, '""');
-
-			var needsQuotes = (typeof _quotes === 'boolean' && _quotes)
-							|| (_quotes instanceof Array && _quotes[col])
-							|| hasAny(str, Papa.BAD_DELIMITERS)
-							|| str.indexOf(_delimiter) > -1
-							|| str.charAt(0) === ' '
-							|| str.charAt(str.length - 1) === ' ';
-
-			return needsQuotes ? '"' + str + '"' : str;
-		}
-
-		function hasAny(str, substrings)
-		{
-			for (var i = 0; i < substrings.length; i++)
-				if (str.indexOf(substrings[i]) > -1)
-					return true;
-			return false;
-		}
-	}
-
-	/** ChunkStreamer is the base prototype for various streamer implementations. */
-	function ChunkStreamer(config)
-	{
-		this._handle = null;
-		this._paused = false;
-		this._finished = false;
-		this._input = null;
-		this._baseIndex = 0;
-		this._partialLine = '';
-		this._rowCount = 0;
-		this._start = 0;
-		this._nextChunk = null;
-		this.isFirstChunk = true;
-		this._completeResults = {
-			data: [],
-			errors: [],
-			meta: {}
-		};
-		replaceConfig.call(this, config);
-
-		this.parseChunk = function(chunk)
-		{
-			// First chunk pre-processing
-			if (this.isFirstChunk && isFunction(this._config.beforeFirstChunk))
-			{
-				var modifiedChunk = this._config.beforeFirstChunk(chunk);
-				if (modifiedChunk !== undefined)
-					chunk = modifiedChunk;
-			}
-			this.isFirstChunk = false;
-
-			// Rejoin the line we likely just split in two by chunking the file
-			var aggregate = this._partialLine + chunk;
-			this._partialLine = '';
-
-			var results = this._handle.parse(aggregate, this._baseIndex, !this._finished);
-
-			if (this._handle.paused() || this._handle.aborted())
-				return;
-
-			var lastIndex = results.meta.cursor;
-
-			if (!this._finished)
-			{
-				this._partialLine = aggregate.substring(lastIndex - this._baseIndex);
-				this._baseIndex = lastIndex;
-			}
-
-			if (results && results.data)
-				this._rowCount += results.data.length;
-
-			var finishedIncludingPreview = this._finished || (this._config.preview && this._rowCount >= this._config.preview);
-
-			if (IS_PAPA_WORKER)
-			{
-				global.postMessage({
-					results: results,
-					workerId: Papa.WORKER_ID,
-					finished: finishedIncludingPreview
-				});
-			}
-			else if (isFunction(this._config.chunk))
-			{
-				this._config.chunk(results, this._handle);
-				if (this._paused)
-					return;
-				results = undefined;
-				this._completeResults = undefined;
-			}
-
-			if (!this._config.step && !this._config.chunk) {
-				this._completeResults.data = this._completeResults.data.concat(results.data);
-				this._completeResults.errors = this._completeResults.errors.concat(results.errors);
-				this._completeResults.meta = results.meta;
-			}
-
-			if (finishedIncludingPreview && isFunction(this._config.complete) && (!results || !results.meta.aborted))
-				this._config.complete(this._completeResults);
-
-			if (!finishedIncludingPreview && (!results || !results.meta.paused))
-				this._nextChunk();
-
-			return results;
-		};
-
-		this._sendError = function(error)
-		{
-			if (isFunction(this._config.error))
-				this._config.error(error);
-			else if (IS_PAPA_WORKER && this._config.error)
-			{
-				global.postMessage({
-					workerId: Papa.WORKER_ID,
-					error: error,
-					finished: false
-				});
-			}
-		};
-
-		function replaceConfig(config)
-		{
-			// Deep-copy the config so we can edit it
-			var configCopy = copy(config);
-			configCopy.chunkSize = parseInt(configCopy.chunkSize);	// parseInt VERY important so we don't concatenate strings!
-			if (!config.step && !config.chunk)
-				configCopy.chunkSize = null;  // disable Range header if not streaming; bad values break IIS - see issue #196
-			this._handle = new ParserHandle(configCopy);
-			this._handle.streamer = this;
-			this._config = configCopy;	// persist the copy to the caller
-		}
-	}
-
-
-	function NetworkStreamer(config)
-	{
-		config = config || {};
-		if (!config.chunkSize)
-			config.chunkSize = Papa.RemoteChunkSize;
-		ChunkStreamer.call(this, config);
-
-		var xhr;
-
-		if (IS_WORKER)
-		{
-			this._nextChunk = function()
-			{
-				this._readChunk();
-				this._chunkLoaded();
-			};
-		}
-		else
-		{
-			this._nextChunk = function()
-			{
-				this._readChunk();
-			};
-		}
-
-		this.stream = function(url)
-		{
-			this._input = url;
-			this._nextChunk();	// Starts streaming
-		};
-
-		this._readChunk = function()
-		{
-			if (this._finished)
-			{
-				this._chunkLoaded();
-				return;
-			}
-
-			xhr = new XMLHttpRequest();
-
-			if (this._config.withCredentials)
-			{
-				xhr.withCredentials = this._config.withCredentials;
-			}
-
-			if (!IS_WORKER)
-			{
-				xhr.onload = bindFunction(this._chunkLoaded, this);
-				xhr.onerror = bindFunction(this._chunkError, this);
-			}
-
-			xhr.open('GET', this._input, !IS_WORKER);
-
-			if (this._config.chunkSize)
-			{
-				var end = this._start + this._config.chunkSize - 1;	// minus one because byte range is inclusive
-				xhr.setRequestHeader('Range', 'bytes='+this._start+'-'+end);
-				xhr.setRequestHeader('If-None-Match', 'webkit-no-cache'); // https://bugs.webkit.org/show_bug.cgi?id=82672
-			}
-
-			try {
-				xhr.send();
-			}
-			catch (err) {
-				this._chunkError(err.message);
-			}
-
-			if (IS_WORKER && xhr.status === 0)
-				this._chunkError();
-			else
-				this._start += this._config.chunkSize;
-		}
-
-		this._chunkLoaded = function()
-		{
-			if (xhr.readyState != 4)
-				return;
-
-			if (xhr.status < 200 || xhr.status >= 400)
-			{
-				this._chunkError();
-				return;
-			}
-
-			this._finished = !this._config.chunkSize || this._start > getFileSize(xhr);
-			this.parseChunk(xhr.responseText);
-		}
-
-		this._chunkError = function(errorMessage)
-		{
-			var errorText = xhr.statusText || errorMessage;
-			this._sendError(errorText);
-		}
-
-		function getFileSize(xhr)
-		{
-			var contentRange = xhr.getResponseHeader('Content-Range');
-			return parseInt(contentRange.substr(contentRange.lastIndexOf('/') + 1));
-		}
-	}
-	NetworkStreamer.prototype = Object.create(ChunkStreamer.prototype);
-	NetworkStreamer.prototype.constructor = NetworkStreamer;
-
-
-	function FileStreamer(config)
-	{
-		config = config || {};
-		if (!config.chunkSize)
-			config.chunkSize = Papa.LocalChunkSize;
-		ChunkStreamer.call(this, config);
-
-		var reader, slice;
-
-		// FileReader is better than FileReaderSync (even in worker) - see http://stackoverflow.com/q/24708649/1048862
-		// But Firefox is a pill, too - see issue #76: https://github.com/mholt/PapaParse/issues/76
-		var usingAsyncReader = typeof FileReader !== 'undefined';	// Safari doesn't consider it a function - see issue #105
-
-		this.stream = function(file)
-		{
-			this._input = file;
-			slice = file.slice || file.webkitSlice || file.mozSlice;
-
-			if (usingAsyncReader)
-			{
-				reader = new FileReader();		// Preferred method of reading files, even in workers
-				reader.onload = bindFunction(this._chunkLoaded, this);
-				reader.onerror = bindFunction(this._chunkError, this);
-			}
-			else
-				reader = new FileReaderSync();	// Hack for running in a web worker in Firefox
-
-			this._nextChunk();	// Starts streaming
-		};
-
-		this._nextChunk = function()
-		{
-			if (!this._finished && (!this._config.preview || this._rowCount < this._config.preview))
-				this._readChunk();
-		}
-
-		this._readChunk = function()
-		{
-			var input = this._input;
-			if (this._config.chunkSize)
-			{
-				var end = Math.min(this._start + this._config.chunkSize, this._input.size);
-				input = slice.call(input, this._start, end);
-			}
-			var txt = reader.readAsText(input, this._config.encoding);
-			if (!usingAsyncReader)
-				this._chunkLoaded({ target: { result: txt } });	// mimic the async signature
-		}
-
-		this._chunkLoaded = function(event)
-		{
-			// Very important to increment start each time before handling results
-			this._start += this._config.chunkSize;
-			this._finished = !this._config.chunkSize || this._start >= this._input.size;
-			this.parseChunk(event.target.result);
-		}
-
-		this._chunkError = function()
-		{
-			this._sendError(reader.error);
-		}
-
-	}
-	FileStreamer.prototype = Object.create(ChunkStreamer.prototype);
-	FileStreamer.prototype.constructor = FileStreamer;
-
-
-	function StringStreamer(config)
-	{
-		config = config || {};
-		ChunkStreamer.call(this, config);
-
-		var string;
-		var remaining;
-		this.stream = function(s)
-		{
-			string = s;
-			remaining = s;
-			return this._nextChunk();
-		}
-		this._nextChunk = function()
-		{
-			if (this._finished) return;
-			var size = this._config.chunkSize;
-			var chunk = size ? remaining.substr(0, size) : remaining;
-			remaining = size ? remaining.substr(size) : '';
-			this._finished = !remaining;
-			return this.parseChunk(chunk);
-		}
-	}
-	StringStreamer.prototype = Object.create(StringStreamer.prototype);
-	StringStreamer.prototype.constructor = StringStreamer;
-
-
-
-	// Use one ParserHandle per entire CSV file or string
-	function ParserHandle(_config)
-	{
-		// One goal is to minimize the use of regular expressions...
-		var FLOAT = /^\s*-?(\d*\.?\d+|\d+\.?\d*)(e[-+]?\d+)?\s*$/i;
-
-		var self = this;
-		var _stepCounter = 0;	// Number of times step was called (number of rows parsed)
-		var _input;				// The input being parsed
-		var _parser;			// The core parser being used
-		var _paused = false;	// Whether we are paused or not
-		var _aborted = false;   // Whether the parser has aborted or not
-		var _delimiterError;	// Temporary state between delimiter detection and processing results
-		var _fields = [];		// Fields are from the header row of the input, if there is one
-		var _results = {		// The last results returned from the parser
-			data: [],
-			errors: [],
-			meta: {}
-		};
-
-		if (isFunction(_config.step))
-		{
-			var userStep = _config.step;
-			_config.step = function(results)
-			{
-				_results = results;
-
-				if (needsHeaderRow())
-					processResults();
-				else	// only call user's step function after header row
-				{
-					processResults();
-
-					// It's possbile that this line was empty and there's no row here after all
-					if (_results.data.length === 0)
-						return;
-
-					_stepCounter += results.data.length;
-					if (_config.preview && _stepCounter > _config.preview)
-						_parser.abort();
-					else
-						userStep(_results, self);
-				}
-			};
-		}
-
-		/**
-		 * Parses input. Most users won't need, and shouldn't mess with, the baseIndex
-		 * and ignoreLastRow parameters. They are used by streamers (wrapper functions)
-		 * when an input comes in multiple chunks, like from a file.
-		 */
-		this.parse = function(input, baseIndex, ignoreLastRow)
-		{
-			if (!_config.newline)
-				_config.newline = guessLineEndings(input);
-
-			_delimiterError = false;
-			if (!_config.delimiter)
-			{
-				var delimGuess = guessDelimiter(input, _config.newline);
-				if (delimGuess.successful)
-					_config.delimiter = delimGuess.bestDelimiter;
-				else
-				{
-					_delimiterError = true;	// add error after parsing (otherwise it would be overwritten)
-					_config.delimiter = Papa.DefaultDelimiter;
-				}
-				_results.meta.delimiter = _config.delimiter;
-			}
-
-			var parserConfig = copy(_config);
-			if (_config.preview && _config.header)
-				parserConfig.preview++;	// to compensate for header row
-
-			_input = input;
-			_parser = new Parser(parserConfig);
-			_results = _parser.parse(_input, baseIndex, ignoreLastRow);
-			processResults();
-			return _paused ? { meta: { paused: true } } : (_results || { meta: { paused: false } });
-		};
-
-		this.paused = function()
-		{
-			return _paused;
-		};
-
-		this.pause = function()
-		{
-			_paused = true;
-			_parser.abort();
-			_input = _input.substr(_parser.getCharIndex());
-		};
-
-		this.resume = function()
-		{
-			_paused = false;
-			self.streamer.parseChunk(_input);
-		};
-
-		this.aborted = function () {
-			return _aborted;
-		}
-
-		this.abort = function()
-		{
-			_aborted = true;
-			_parser.abort();
-			_results.meta.aborted = true;
-			if (isFunction(_config.complete))
-				_config.complete(_results);
-			_input = '';
-		};
-
-		function processResults()
-		{
-			if (_results && _delimiterError)
-			{
-				addError('Delimiter', 'UndetectableDelimiter', 'Unable to auto-detect delimiting character; defaulted to \''+Papa.DefaultDelimiter+'\'');
-				_delimiterError = false;
-			}
-
-			if (_config.skipEmptyLines)
-			{
-				for (var i = 0; i < _results.data.length; i++)
-					if (_results.data[i].length === 1 && _results.data[i][0] === '')
-						_results.data.splice(i--, 1);
-			}
-
-			if (needsHeaderRow())
-				fillHeaderFields();
-
-			return applyHeaderAndDynamicTyping();
-		}
-
-		function needsHeaderRow()
-		{
-			return _config.header && _fields.length === 0;
-		}
-
-		function fillHeaderFields()
-		{
-			if (!_results)
-				return;
-			for (var i = 0; needsHeaderRow() && i < _results.data.length; i++)
-				for (var j = 0; j < _results.data[i].length; j++)
-					_fields.push(_results.data[i][j]);
-			_results.data.splice(0, 1);
-		}
-
-		function applyHeaderAndDynamicTyping()
-		{
-			if (!_results || (!_config.header && !_config.dynamicTyping))
-				return _results;
-
-			for (var i = 0; i < _results.data.length; i++)
-			{
-				var row = {};
-
-				for (var j = 0; j < _results.data[i].length; j++)
-				{
-					if (_config.dynamicTyping)
-					{
-						var value = _results.data[i][j];
-						if (value === 'true' || value === 'TRUE')
-							_results.data[i][j] = true;
-						else if (value === 'false' || value === 'FALSE')
-							_results.data[i][j] = false;
-						else
-							_results.data[i][j] = tryParseFloat(value);
-					}
-
-					if (_config.header)
-					{
-						if (j >= _fields.length)
-						{
-							if (!row['__parsed_extra'])
-								row['__parsed_extra'] = [];
-							row['__parsed_extra'].push(_results.data[i][j]);
-						}
-						else
-							row[_fields[j]] = _results.data[i][j];
-					}
-				}
-
-				if (_config.header)
-				{
-					_results.data[i] = row;
-					if (j > _fields.length)
-						addError('FieldMismatch', 'TooManyFields', 'Too many fields: expected ' + _fields.length + ' fields but parsed ' + j, i);
-					else if (j < _fields.length)
-						addError('FieldMismatch', 'TooFewFields', 'Too few fields: expected ' + _fields.length + ' fields but parsed ' + j, i);
-				}
-			}
-
-			if (_config.header && _results.meta)
-				_results.meta.fields = _fields;
-			return _results;
-		}
-
-		function guessDelimiter(input, newline)
-		{
-			var delimChoices = [',', '\t', '|', ';', Papa.RECORD_SEP, Papa.UNIT_SEP];
-			var bestDelim, bestDelta, fieldCountPrevRow;
-
-			for (var i = 0; i < delimChoices.length; i++)
-			{
-				var delim = delimChoices[i];
-				var delta = 0, avgFieldCount = 0;
-				fieldCountPrevRow = undefined;
-
-				var preview = new Parser({
-					delimiter: delim,
-					newline: newline,
-					preview: 10
-				}).parse(input);
-
-				for (var j = 0; j < preview.data.length; j++)
-				{
-					var fieldCount = preview.data[j].length;
-					avgFieldCount += fieldCount;
-
-					if (typeof fieldCountPrevRow === 'undefined')
-					{
-						fieldCountPrevRow = fieldCount;
-						continue;
-					}
-					else if (fieldCount > 1)
-					{
-						delta += Math.abs(fieldCount - fieldCountPrevRow);
-						fieldCountPrevRow = fieldCount;
-					}
-				}
-
-				if (preview.data.length > 0)
-					avgFieldCount /= preview.data.length;
-
-				if ((typeof bestDelta === 'undefined' || delta < bestDelta)
-					&& avgFieldCount > 1.99)
-				{
-					bestDelta = delta;
-					bestDelim = delim;
-				}
-			}
-
-			_config.delimiter = bestDelim;
-
-			return {
-				successful: !!bestDelim,
-				bestDelimiter: bestDelim
-			}
-		}
-
-		function guessLineEndings(input)
-		{
-			input = input.substr(0, 1024*1024);	// max length 1 MB
-
-			var r = input.split('\r');
-
-			if (r.length === 1)
-				return '\n';
-
-			var numWithN = 0;
-			for (var i = 0; i < r.length; i++)
-			{
-				if (r[i][0] === '\n')
-					numWithN++;
-			}
-
-			return numWithN >= r.length / 2 ? '\r\n' : '\r';
-		}
-
-		function tryParseFloat(val)
-		{
-			var isNumber = FLOAT.test(val);
-			return isNumber ? parseFloat(val) : val;
-		}
-
-		function addError(type, code, msg, row)
-		{
-			_results.errors.push({
-				type: type,
-				code: code,
-				message: msg,
-				row: row
-			});
-		}
-	}
-
-
-
-
-
-	/** The core parser implements speedy and correct CSV parsing */
-	function Parser(config)
-	{
-		// Unpack the config object
-		config = config || {};
-		var delim = config.delimiter;
-		var newline = config.newline;
-		var comments = config.comments;
-		var step = config.step;
-		var preview = config.preview;
-		var fastMode = config.fastMode;
-
-		// Delimiter must be valid
-		if (typeof delim !== 'string'
-			|| Papa.BAD_DELIMITERS.indexOf(delim) > -1)
-			delim = ',';
-
-		// Comment character must be valid
-		if (comments === delim)
-			throw 'Comment character same as delimiter';
-		else if (comments === true)
-			comments = '#';
-		else if (typeof comments !== 'string'
-			|| Papa.BAD_DELIMITERS.indexOf(comments) > -1)
-			comments = false;
-
-		// Newline must be valid: \r, \n, or \r\n
-		if (newline != '\n' && newline != '\r' && newline != '\r\n')
-			newline = '\n';
-
-		// We're gonna need these at the Parser scope
-		var cursor = 0;
-		var aborted = false;
-
-		this.parse = function(input, baseIndex, ignoreLastRow)
-		{
-			// For some reason, in Chrome, this speeds things up (!?)
-			if (typeof input !== 'string')
-				throw 'Input must be a string';
-
-			// We don't need to compute some of these every time parse() is called,
-			// but having them in a more local scope seems to perform better
-			var inputLen = input.length,
-				delimLen = delim.length,
-				newlineLen = newline.length,
-				commentsLen = comments.length;
-			var stepIsFunction = typeof step === 'function';
-
-			// Establish starting state
-			cursor = 0;
-			var data = [], errors = [], row = [], lastCursor = 0;
-
-			if (!input)
-				return returnable();
-
-			if (fastMode || (fastMode !== false && input.indexOf('"') === -1))
-			{
-				var rows = input.split(newline);
-				for (var i = 0; i < rows.length; i++)
-				{
-					var row = rows[i];
-					cursor += row.length;
-					if (i !== rows.length - 1)
-						cursor += newline.length;
-					else if (ignoreLastRow)
-						return returnable();
-					if (comments && row.substr(0, commentsLen) === comments)
-						continue;
-					if (stepIsFunction)
-					{
-						data = [];
-						pushRow(row.split(delim));
-						doStep();
-						if (aborted)
-							return returnable();
-					}
-					else
-						pushRow(row.split(delim));
-					if (preview && i >= preview)
-					{
-						data = data.slice(0, preview);
-						return returnable(true);
-					}
-				}
-				return returnable();
-			}
-
-			var nextDelim = input.indexOf(delim, cursor);
-			var nextNewline = input.indexOf(newline, cursor);
-
-			// Parser loop
-			for (;;)
-			{
-				// Field has opening quote
-				if (input[cursor] === '"')
-				{
-					// Start our search for the closing quote where the cursor is
-					var quoteSearch = cursor;
-
-					// Skip the opening quote
-					cursor++;
-
-					for (;;)
-					{
-						// Find closing quote
-						var quoteSearch = input.indexOf('"', quoteSearch+1);
-
-						if (quoteSearch === -1)
-						{
-							if (!ignoreLastRow) {
-								// No closing quote... what a pity
-								errors.push({
-									type: 'Quotes',
-									code: 'MissingQuotes',
-									message: 'Quoted field unterminated',
-									row: data.length,	// row has yet to be inserted
-									index: cursor
-								});
-							}
-							return finish();
-						}
-
-						if (quoteSearch === inputLen-1)
-						{
-							// Closing quote at EOF
-							var value = input.substring(cursor, quoteSearch).replace(/""/g, '"');
-							return finish(value);
-						}
-
-						// If this quote is escaped, it's part of the data; skip it
-						if (input[quoteSearch+1] === '"')
-						{
-							quoteSearch++;
-							continue;
-						}
-
-						if (input[quoteSearch+1] === delim)
-						{
-							// Closing quote followed by delimiter
-							row.push(input.substring(cursor, quoteSearch).replace(/""/g, '"'));
-							cursor = quoteSearch + 1 + delimLen;
-							nextDelim = input.indexOf(delim, cursor);
-							nextNewline = input.indexOf(newline, cursor);
-							break;
-						}
-
-						if (input.substr(quoteSearch+1, newlineLen) === newline)
-						{
-							// Closing quote followed by newline
-							row.push(input.substring(cursor, quoteSearch).replace(/""/g, '"'));
-							saveRow(quoteSearch + 1 + newlineLen);
-							nextDelim = input.indexOf(delim, cursor);	// because we may have skipped the nextDelim in the quoted field
-
-							if (stepIsFunction)
-							{
-								doStep();
-								if (aborted)
-									return returnable();
-							}
-
-							if (preview && data.length >= preview)
-								return returnable(true);
-
-							break;
-						}
-					}
-
-					continue;
-				}
-
-				// Comment found at start of new line
-				if (comments && row.length === 0 && input.substr(cursor, commentsLen) === comments)
-				{
-					if (nextNewline === -1)	// Comment ends at EOF
-						return returnable();
-					cursor = nextNewline + newlineLen;
-					nextNewline = input.indexOf(newline, cursor);
-					nextDelim = input.indexOf(delim, cursor);
-					continue;
-				}
-
-				// Next delimiter comes before next newline, so we've reached end of field
-				if (nextDelim !== -1 && (nextDelim < nextNewline || nextNewline === -1))
-				{
-					row.push(input.substring(cursor, nextDelim));
-					cursor = nextDelim + delimLen;
-					nextDelim = input.indexOf(delim, cursor);
-					continue;
-				}
-
-				// End of row
-				if (nextNewline !== -1)
-				{
-					row.push(input.substring(cursor, nextNewline));
-					saveRow(nextNewline + newlineLen);
-
-					if (stepIsFunction)
-					{
-						doStep();
-						if (aborted)
-							return returnable();
-					}
-
-					if (preview && data.length >= preview)
-						return returnable(true);
-
-					continue;
-				}
-
-				break;
-			}
-
-
-			return finish();
-
-
-			function pushRow(row)
-			{
-				data.push(row);
-				lastCursor = cursor;
-			}
-
-			/**
-			 * Appends the remaining input from cursor to the end into
-			 * row, saves the row, calls step, and returns the results.
-			 */
-			function finish(value)
-			{
-				if (ignoreLastRow)
-					return returnable();
-				if (typeof value === 'undefined')
-					value = input.substr(cursor);
-				row.push(value);
-				cursor = inputLen;	// important in case parsing is paused
-				pushRow(row);
-				if (stepIsFunction)
-					doStep();
-				return returnable();
-			}
-
-			/**
-			 * Appends the current row to the results. It sets the cursor
-			 * to newCursor and finds the nextNewline. The caller should
-			 * take care to execute user's step function and check for
-			 * preview and end parsing if necessary.
-			 */
-			function saveRow(newCursor)
-			{
-				cursor = newCursor;
-				pushRow(row);
-				row = [];
-				nextNewline = input.indexOf(newline, cursor);
-			}
-
-			/** Returns an object with the results, errors, and meta. */
-			function returnable(stopped)
-			{
-				return {
-					data: data,
-					errors: errors,
-					meta: {
-						delimiter: delim,
-						linebreak: newline,
-						aborted: aborted,
-						truncated: !!stopped,
-						cursor: lastCursor + (baseIndex || 0)
-					}
-				};
-			}
-
-			/** Executes the user's step function and resets data & errors. */
-			function doStep()
-			{
-				step(returnable());
-				data = [], errors = [];
-			}
-		};
-
-		/** Sets the abort flag */
-		this.abort = function()
-		{
-			aborted = true;
-		};
-
-		/** Gets the cursor position */
-		this.getCharIndex = function()
-		{
-			return cursor;
-		};
-	}
-
-
-	// If you need to load Papa Parse asynchronously and you also need worker threads, hard-code
-	// the script path here. See: https://github.com/mholt/PapaParse/issues/87#issuecomment-57885358
-	function getScriptPath()
-	{
-		var scripts = document.getElementsByTagName('script');
-		return scripts.length ? scripts[scripts.length - 1].src : '';
-	}
-
-	function newWorker()
-	{
-		if (!Papa.WORKERS_SUPPORTED)
-			return false;
-		if (!LOADED_SYNC && Papa.SCRIPT_PATH === null)
-			throw new Error(
-				'Script path cannot be determined automatically when Papa Parse is loaded asynchronously. ' +
-				'You need to set Papa.SCRIPT_PATH manually.'
-			);
-		var workerUrl = Papa.SCRIPT_PATH || AUTO_SCRIPT_PATH;
-		// Append 'papaworker' to the search string to tell papaparse that this is our worker.
-		workerUrl += (workerUrl.indexOf('?') !== -1 ? '&' : '?') + 'papaworker';
-		var w = new global.Worker(workerUrl);
-		w.onmessage = mainThreadReceivedMessage;
-		w.id = workerIdCounter++;
-		workers[w.id] = w;
-		return w;
-	}
-
-	/** Callback when main thread receives a message */
-	function mainThreadReceivedMessage(e)
-	{
-		var msg = e.data;
-		var worker = workers[msg.workerId];
-		var aborted = false;
-
-		if (msg.error)
-			worker.userError(msg.error, msg.file);
-		else if (msg.results && msg.results.data)
-		{
-			var abort = function() {
-				aborted = true;
-				completeWorker(msg.workerId, { data: [], errors: [], meta: { aborted: true } });
-			};
-
-			var handle = {
-				abort: abort,
-				pause: notImplemented,
-				resume: notImplemented
-			};
-
-			if (isFunction(worker.userStep))
-			{
-				for (var i = 0; i < msg.results.data.length; i++)
-				{
-					worker.userStep({
-						data: [msg.results.data[i]],
-						errors: msg.results.errors,
-						meta: msg.results.meta
-					}, handle);
-					if (aborted)
-						break;
-				}
-				delete msg.results;	// free memory ASAP
-			}
-			else if (isFunction(worker.userChunk))
-			{
-				worker.userChunk(msg.results, handle, msg.file);
-				delete msg.results;
-			}
-		}
-
-		if (msg.finished && !aborted)
-			completeWorker(msg.workerId, msg.results);
-	}
-
-	function completeWorker(workerId, results) {
-		var worker = workers[workerId];
-		if (isFunction(worker.userComplete))
-			worker.userComplete(results);
-		worker.terminate();
-		delete workers[workerId];
-	}
-
-	function notImplemented() {
-		throw 'Not implemented.';
-	}
-
-	/** Callback when worker thread receives a message */
-	function workerThreadReceivedMessage(e)
-	{
-		var msg = e.data;
-
-		if (typeof Papa.WORKER_ID === 'undefined' && msg)
-			Papa.WORKER_ID = msg.workerId;
-
-		if (typeof msg.input === 'string')
-		{
-			global.postMessage({
-				workerId: Papa.WORKER_ID,
-				results: Papa.parse(msg.input, msg.config),
-				finished: true
-			});
-		}
-		else if ((global.File && msg.input instanceof File) || msg.input instanceof Object)	// thank you, Safari (see issue #106)
-		{
-			var results = Papa.parse(msg.input, msg.config);
-			if (results)
-				global.postMessage({
-					workerId: Papa.WORKER_ID,
-					results: results,
-					finished: true
-				});
-		}
-	}
-
-	/** Makes a deep copy of an array or object (mostly) */
-	function copy(obj)
-	{
-		if (typeof obj !== 'object')
-			return obj;
-		var cpy = obj instanceof Array ? [] : {};
-		for (var key in obj)
-			cpy[key] = copy(obj[key]);
-		return cpy;
-	}
-
-	function bindFunction(f, self)
-	{
-		return function() { f.apply(self, arguments); };
-	}
-
-	function isFunction(func)
-	{
-		return typeof func === 'function';
-	}
-})(typeof window !== 'undefined' ? window : this);
+(function(g){function D(a){this._handle=null;this._finished=this._paused=!1;this._input=null;this._baseIndex=0;this._partialLine="";this._start=this._rowCount=0;this._nextChunk=null;this.isFirstChunk=!0;this._completeResults={data:[],errors:[],meta:{}};(function(a){var c=L(a);c.chunkSize=parseInt(c.chunkSize);a.step||a.chunk||(c.chunkSize=null);this._handle=new P(c);this._handle.streamer=this;this._config=c}).call(this,a);this.parseChunk=function(a){if(this.isFirstChunk&&k(this._config.beforeFirstChunk)){var c=
+this._config.beforeFirstChunk(a);void 0!==c&&(a=c)}this.isFirstChunk=!1;c=this._partialLine+a;this._partialLine="";a=this._handle.parse(c,this._baseIndex,!this._finished);if(!this._handle.paused()&&!this._handle.aborted()){var m=a.meta.cursor;this._finished||(this._partialLine=c.substring(m-this._baseIndex),this._baseIndex=m);a&&a.data&&(this._rowCount+=a.data.length);c=this._finished||this._config.preview&&this._rowCount>=this._config.preview;if(M)g.postMessage({results:a,workerId:e.WORKER_ID,finished:c});
+else if(k(this._config.chunk)){this._config.chunk(a,this._handle);if(this._paused)return;this._completeResults=a=void 0}this._config.step||this._config.chunk||(this._completeResults.data=this._completeResults.data.concat(a.data),this._completeResults.errors=this._completeResults.errors.concat(a.errors),this._completeResults.meta=a.meta);!c||!k(this._config.complete)||a&&a.meta.aborted||this._config.complete(this._completeResults);c||a&&a.meta.paused||this._nextChunk();return a}};this._sendError=function(a){k(this._config.error)?
+this._config.error(a):M&&this._config.error&&g.postMessage({workerId:e.WORKER_ID,error:a,finished:!1})}}function y(a){a=a||{};a.chunkSize||(a.chunkSize=e.RemoteChunkSize);D.call(this,a);var b;this._nextChunk=B?function(){this._readChunk();this._chunkLoaded()}:function(){this._readChunk()};this.stream=function(a){this._input=a;this._nextChunk()};this._readChunk=function(){if(this._finished)this._chunkLoaded();else{b=new XMLHttpRequest;this._config.withCredentials&&(b.withCredentials=this._config.withCredentials);
+B||(b.onload=I(this._chunkLoaded,this),b.onerror=I(this._chunkError,this));b.open("GET",this._input,!B);this._config.chunkSize&&(b.setRequestHeader("Range","bytes="+this._start+"-"+(this._start+this._config.chunkSize-1)),b.setRequestHeader("If-None-Match","webkit-no-cache"));try{b.send()}catch(a){this._chunkError(a.message)}B&&0===b.status?this._chunkError():this._start+=this._config.chunkSize}};this._chunkLoaded=function(){if(4==b.readyState)if(200>b.status||400<=b.status)this._chunkError();else{var a;
+if(!(a=!this._config.chunkSize)){a=this._start;var e;e=b.getResponseHeader("Content-Range");e=parseInt(e.substr(e.lastIndexOf("/")+1));a=a>e}this._finished=a;this.parseChunk(b.responseText)}};this._chunkError=function(a){this._sendError(b.statusText||a)}}function z(a){a=a||{};a.chunkSize||(a.chunkSize=e.LocalChunkSize);D.call(this,a);var b,c,m="undefined"!==typeof FileReader;this.stream=function(a){this._input=a;c=a.slice||a.webkitSlice||a.mozSlice;m?(b=new FileReader,b.onload=I(this._chunkLoaded,
+this),b.onerror=I(this._chunkError,this)):b=new FileReaderSync;this._nextChunk()};this._nextChunk=function(){this._finished||this._config.preview&&!(this._rowCount<this._config.preview)||this._readChunk()};this._readChunk=function(){var a=this._input;this._config.chunkSize&&(a=c.call(a,this._start,Math.min(this._start+this._config.chunkSize,this._input.size)));a=b.readAsText(a,this._config.encoding);m||this._chunkLoaded({target:{result:a}})};this._chunkLoaded=function(a){this._start+=this._config.chunkSize;
+this._finished=!this._config.chunkSize||this._start>=this._input.size;this.parseChunk(a.target.result)};this._chunkError=function(){this._sendError(b.error)}}function w(a){a=a||{};D.call(this,a);var b;this.stream=function(a){b=a;return this._nextChunk()};this._nextChunk=function(){if(!this._finished){var a=this._config.chunkSize,e=a?b.substr(0,a):b;b=a?b.substr(a):"";this._finished=!b;return this.parseChunk(e)}}}function P(a){function b(){h&&J&&(c("Delimiter","UndetectableDelimiter","Unable to auto-detect delimiting character; defaulted to '"+
+e.DefaultDelimiter+"'"),J=!1);if(a.skipEmptyLines)for(var b=0;b<h.data.length;b++)1===h.data[b].length&&""===h.data[b][0]&&h.data.splice(b--,1);if(a.header&&0===l.length&&h){for(b=0;a.header&&0===l.length&&b<h.data.length;b++)for(var d=0;d<h.data[b].length;d++)l.push(h.data[b][d]);h.data.splice(0,1)}if(h&&(a.header||a.dynamicTyping)){for(b=0;b<h.data.length;b++){for(var d={},t=0;t<h.data[b].length;t++){if(a.dynamicTyping){var p=h.data[b][t],u=h.data[b],f=t,p="true"===p||"TRUE"===p?!0:"false"===p||
+"FALSE"===p?!1:m.test(p)?parseFloat(p):p;u[f]=p}a.header&&(t>=l.length?(d.__parsed_extra||(d.__parsed_extra=[]),d.__parsed_extra.push(h.data[b][t])):d[l[t]]=h.data[b][t])}a.header&&(h.data[b]=d,t>l.length?c("FieldMismatch","TooManyFields","Too many fields: expected "+l.length+" fields but parsed "+t,b):t<l.length&&c("FieldMismatch","TooFewFields","Too few fields: expected "+l.length+" fields but parsed "+t,b))}a.header&&h.meta&&(h.meta.fields=l)}b=h;return b}function c(a,b,c,d){h.errors.push({type:a,
+code:b,message:c,row:d})}var m=/^\s*-?(\d*\.?\d+|\d+\.?\d*)(e[-+]?\d+)?\s*$/i,g=this,f=0,u,d,p=!1,t=!1,J,l=[],h={data:[],errors:[],meta:{}};if(k(a.step)){var F=a.step;a.step=function(c){h=c;a.header&&0===l.length?b():(b(),0!==h.data.length&&(f+=c.data.length,a.preview&&f>a.preview?d.abort():F(h,g)))}}this.parse=function(c,t,m){var f;if(!a.newline){var l;l=c.substr(0,1048576);l=l.split("\r");if(1===l.length)l="\n";else{for(var g=0,k=0;k<l.length;k++)"\n"===l[k][0]&&g++;l=g>=l.length/2?"\r\n":"\r"}a.newline=
+l}J=!1;if(!a.delimiter){l=a.newline;for(var g=[",","\t","|",";",e.RECORD_SEP,e.UNIT_SEP],F,x=0;x<g.length;x++){for(var Q=g[x],q=0,E=0,k=void 0,n=(new N({delimiter:Q,newline:l,preview:10})).parse(c),v=0;v<n.data.length;v++){var H=n.data[v].length,E=E+H;"undefined"===typeof k?k=H:1<H&&(q+=Math.abs(H-k),k=H)}0<n.data.length&&(E/=n.data.length);("undefined"===typeof f||q<f)&&1.99<E&&(f=q,F=Q)}(f=a.delimiter=F)?a.delimiter=f:(J=!0,a.delimiter=e.DefaultDelimiter);h.meta.delimiter=a.delimiter}F=L(a);a.preview&&
+a.header&&F.preview++;u=c;d=new N(F);h=d.parse(u,t,m);b();return p?{meta:{paused:!0}}:h||{meta:{paused:!1}}};this.paused=function(){return p};this.pause=function(){p=!0;d.abort();u=u.substr(d.getCharIndex())};this.resume=function(){p=!1;g.streamer.parseChunk(u)};this.aborted=function(){return t};this.abort=function(){t=!0;d.abort();h.meta.aborted=!0;k(a.complete)&&a.complete(h);u=""}}function N(a){a=a||{};var b=a.delimiter,c=a.newline,m=a.comments,g=a.step,f=a.preview,u=a.fastMode;if("string"!==typeof b||
+-1<e.BAD_DELIMITERS.indexOf(b))b=",";if(m===b)throw"Comment character same as delimiter";if(!0===m)m="#";else if("string"!==typeof m||-1<e.BAD_DELIMITERS.indexOf(m))m=!1;"\n"!=c&&"\r"!=c&&"\r\n"!=c&&(c="\n");var d=0,p=!1;this.parse=function(a,e,l){function h(a){x.push(a);E=d}function k(b){if(l)return r();"undefined"===typeof b&&(b=a.substr(d));q.push(b);d=D;h(q);z&&w();return r()}function B(b){d=b;h(q);q=[];v=a.indexOf(c,d)}function r(a){return{data:x,errors:C,meta:{delimiter:b,linebreak:c,aborted:p,
+truncated:!!a,cursor:E+(e||0)}}}function w(){g(r());x=[];C=[]}if("string"!==typeof a)throw"Input must be a string";var D=a.length,G=b.length,A=c.length,y=m.length,z="function"===typeof g;d=0;var x=[],C=[],q=[],E=0;if(!a)return r();if(u||!1!==u&&-1===a.indexOf('"')){G=a.split(c);for(A=0;A<G.length;A++){q=G[A];d+=q.length;if(A!==G.length-1)d+=c.length;else if(l)break;if(!m||q.substr(0,y)!==m){if(z){if(x=[],h(q.split(b)),w(),p)break}else h(q.split(b));if(f&&A>=f)return x=x.slice(0,f),r(!0)}}return r()}for(var n=
+a.indexOf(b,d),v=a.indexOf(c,d);;)if('"'===a[d])for(n=d,d++;;){n=a.indexOf('"',n+1);if(-1===n)return l||C.push({type:"Quotes",code:"MissingQuotes",message:"Quoted field unterminated",row:x.length,index:d}),k();if(n===D-1)return y=a.substring(d,n).replace(/""/g,'"'),k(y);if('"'===a[n+1])n++;else{if(a[n+1]===b){q.push(a.substring(d,n).replace(/""/g,'"'));d=n+1+G;n=a.indexOf(b,d);v=a.indexOf(c,d);break}if(a.substr(n+1,A)===c){q.push(a.substring(d,n).replace(/""/g,'"'));B(n+1+A);n=a.indexOf(b,d);if(z&&
+(w(),p))return r();if(f&&x.length>=f)return r(!0);break}}}else if(m&&0===q.length&&a.substr(d,y)===m){if(-1===v)return r();d=v+A;v=a.indexOf(c,d);n=a.indexOf(b,d)}else if(-1!==n&&(n<v||-1===v))q.push(a.substring(d,n)),d=n+G,n=a.indexOf(b,d);else if(-1!==v){q.push(a.substring(d,v));B(v+A);if(z&&(w(),p))return r();if(f&&x.length>=f)return r(!0)}else break;return k()};this.abort=function(){p=!0};this.getCharIndex=function(){return d}}function U(){var a=document.getElementsByTagName("script");return a.length?
+a[a.length-1].src:""}function V(a){var b=a.data;a=K[b.workerId];var c=!1;if(b.error)a.userError(b.error,b.file);else if(b.results&&b.results.data){var e={abort:function(){c=!0;R(b.workerId,{data:[],errors:[],meta:{aborted:!0}})},pause:S,resume:S};if(k(a.userStep)){for(var g=0;g<b.results.data.length&&(a.userStep({data:[b.results.data[g]],errors:b.results.errors,meta:b.results.meta},e),!c);g++);delete b.results}else k(a.userChunk)&&(a.userChunk(b.results,e,b.file),delete b.results)}b.finished&&!c&&
+R(b.workerId,b.results)}function R(a,b){var c=K[a];k(c.userComplete)&&c.userComplete(b);c.terminate();delete K[a]}function S(){throw"Not implemented.";}function W(a){a=a.data;"undefined"===typeof e.WORKER_ID&&a&&(e.WORKER_ID=a.workerId);"string"===typeof a.input?g.postMessage({workerId:e.WORKER_ID,results:e.parse(a.input,a.config),finished:!0}):(g.File&&a.input instanceof File||a.input instanceof Object)&&(a=e.parse(a.input,a.config))&&g.postMessage({workerId:e.WORKER_ID,results:a,finished:!0})}function L(a){if("object"!==
+typeof a)return a;var b=a instanceof Array?[]:{},c;for(c in a)b[c]=L(a[c]);return b}function I(a,b){return function(){a.apply(b,arguments)}}function k(a){return"function"===typeof a}var B=!g.document&&!!g.postMessage,M=B&&/(\?|&)papaworker(=|&|$)/.test(g.location.search),O=!1,T,K={},X=0,e={parse:function(a,b){b=b||{};if(b.worker&&e.WORKERS_SUPPORTED){var c;if(e.WORKERS_SUPPORTED){if(!O&&null===e.SCRIPT_PATH)throw Error("Script path cannot be determined automatically when Papa Parse is loaded asynchronously. You need to set Papa.SCRIPT_PATH manually.");
+c=e.SCRIPT_PATH||T;c+=(-1!==c.indexOf("?")?"&":"?")+"papaworker";c=new g.Worker(c);c.onmessage=V;c.id=X++;K[c.id]=c}else c=!1;c.userStep=b.step;c.userChunk=b.chunk;c.userComplete=b.complete;c.userError=b.error;b.step=k(b.step);b.chunk=k(b.chunk);b.complete=k(b.complete);b.error=k(b.error);delete b.worker;c.postMessage({input:a,config:b,workerId:c.id})}else{c=null;if("string"===typeof a)c=b.download?new y(b):new w(b);else if(g.File&&a instanceof File||a instanceof Object)c=new z(b);return c.stream(a)}},
+unparse:function(a,b){function c(a){if("object"!==typeof a)return[];var b=[],c;for(c in a)b.push(c);return b}function g(a,b){var c="";"string"===typeof a&&(a=JSON.parse(a));"string"===typeof b&&(b=JSON.parse(b));var e=a instanceof Array&&0<a.length,h=!(b[0]instanceof Array);if(e){for(var f=0;f<a.length;f++)0<f&&(c+=u),c+=k(a[f],f);0<b.length&&(c+=d)}for(f=0;f<b.length;f++){for(var m=e?a.length:b[f].length,r=0;r<m;r++)0<r&&(c+=u),c+=k(b[f][e&&h?a[r]:r],r);f<b.length-1&&(c+=d)}return c}function k(a,
+b){if("undefined"===typeof a||null===a)return"";a=a.toString().replace(/"/g,'""');var c;if(!(c="boolean"===typeof f&&f||f instanceof Array&&f[b]))a:{c=a;for(var d=e.BAD_DELIMITERS,h=0;h<d.length;h++)if(-1<c.indexOf(d[h])){c=!0;break a}c=!1}return c||-1<a.indexOf(u)||" "===a.charAt(0)||" "===a.charAt(a.length-1)?'"'+a+'"':a}var f=!1,u=",",d="\r\n";if("object"===typeof b){"string"===typeof b.delimiter&&1===b.delimiter.length&&-1===e.BAD_DELIMITERS.indexOf(b.delimiter)&&(u=b.delimiter);if("boolean"===
+typeof b.quotes||b.quotes instanceof Array)f=b.quotes;"string"===typeof b.newline&&(d=b.newline)}"string"===typeof a&&(a=JSON.parse(a));if(a instanceof Array){if(!a.length||a[0]instanceof Array)return g(null,a);if("object"===typeof a[0])return g(c(a[0]),a)}else if("object"===typeof a)return"string"===typeof a.data&&(a.data=JSON.parse(a.data)),a.data instanceof Array&&(a.fields||(a.fields=a.meta&&a.meta.fields),a.fields||(a.fields=a.data[0]instanceof Array?a.fields:c(a.data[0])),a.data[0]instanceof
+Array||"object"===typeof a.data[0]||(a.data=[a.data])),g(a.fields||[],a.data||[]);throw"exception: Unable to serialize unrecognized input";}};e.RECORD_SEP=String.fromCharCode(30);e.UNIT_SEP=String.fromCharCode(31);e.BYTE_ORDER_MARK="\ufeff";e.BAD_DELIMITERS=["\r","\n",'"',e.BYTE_ORDER_MARK];e.WORKERS_SUPPORTED=!B&&!!g.Worker;e.SCRIPT_PATH=null;e.LocalChunkSize=10485760;e.RemoteChunkSize=5242880;e.DefaultDelimiter=",";e.Parser=N;e.ParserHandle=P;e.NetworkStreamer=y;e.FileStreamer=z;e.StringStreamer=
+w;"undefined"!==typeof module&&module.exports?module.exports=e:k(g.define)&&g.define.amd?define(function(){return e}):g.Papa=e;if(g.jQuery){var C=g.jQuery;C.fn.parse=function(a){function b(){if(0===f.length)k(a.complete)&&a.complete();else{var b=f[0];if(k(a.before)){var d=a.before(b.file,b.inputElem);if("object"===typeof d){if("abort"===d.action){c("AbortError",b.file,b.inputElem,d.reason);return}if("skip"===d.action){m();return}"object"===typeof d.config&&(b.instanceConfig=C.extend(b.instanceConfig,
+d.config))}else if("skip"===d){m();return}}var g=b.instanceConfig.complete;b.instanceConfig.complete=function(a){k(g)&&g(a,b.file,b.inputElem);m()};e.parse(b.file,b.instanceConfig)}}function c(b,c,e,f){k(a.error)&&a.error({name:b},c,e,f)}function m(){f.splice(0,1);b()}var w=a.config||{},f=[];this.each(function(a){if("INPUT"!==C(this).prop("tagName").toUpperCase()||"file"!==C(this).attr("type").toLowerCase()||!g.FileReader||!this.files||0===this.files.length)return!0;for(a=0;a<this.files.length;a++)f.push({file:this.files[a],
+inputElem:this,instanceConfig:C.extend({},w)})});b();return this}}M?g.onmessage=W:e.WORKERS_SUPPORTED&&(T=U(),document.body?document.addEventListener("DOMContentLoaded",function(){O=!0},!0):O=!0);y.prototype=Object.create(D.prototype);y.prototype.constructor=y;z.prototype=Object.create(D.prototype);z.prototype.constructor=z;w.prototype=Object.create(w.prototype);w.prototype.constructor=w})("undefined"!==typeof window?window:this);
 
 byui.fn('csv', function(obj){
 	switch (this.type()){
@@ -1772,6 +395,7 @@ byui.fn('csv', function(obj){
 			this.errors = p.errors;
 		}
 	}
+	return this;
 })
 byui.fn('sum', function(){
 	switch (this.type()){
@@ -1844,7 +468,7 @@ byui.fn('obj', function(base){
 	switch (this.type()){
 		case 'object':  return this.context;
 		case 'xml': {
-			return createObject(this.context);
+			return byui.createObject(this.context);
 		}
 		default: {
 			var o = {};
@@ -1857,31 +481,65 @@ byui.fn('obj', function(base){
 byui.extend('createObject', function(node){
 	var name = node.nodeName.toLowerCase();
 	var result = {_name: name};
-	result[name] = {};
+	result[name] = {
+		children: []
+	};
 	var attrs = node.attributes;
-	for (var i = 0; i < attrs.length; i++){
-		var attrName = attrs[i].name;
-		var attrVal = attrs[i].value;
-		result[name][attrName] = attrVal;
-	}
+	if (attrs && attrs.length > 0){
+		for (var i = 0; i < attrs.length; i++){
+			var attrName = attrs[i].name;
+			var attrVal = attrs[i].value;
+			result[name][attrName] = attrVal;
+		}
+	} 
 	var children = node.children;
-	var org = {};
-	for (var i = 0; i < children.length; i++){
-		if (!org[children[i].nodeName.toLowerCase()]) org[children[i].nodeName.toLowerCase()] = [children[i]];
-		else org[children[i].nodeName.toLowerCase()].push(children[i]);
+	if (children){
+		for (var i = 0; i < children.length; i++){
+			result[name].children.push(byui.createObject(children[i]));
+		}
 	}
-	var keys = Object.keys(org);
-	for (var i = 0; i < keys.length; i++){
-		if (org[keys[i]].length == 1){
-			var o = byui.createObject(org[keys[i]][0]);
-			result[name][keys[i]] = o[o._name];
+	return result;
+});
+byui.extend('shortcut', function(shortcut, callback){
+	if (byui.fn._internal.getType(shortcut) != 'string') throw 'Expected string';
+	if (!callback) throw 'Expected callback';
+	this.fn._internal.shortcuts.push({
+		shortcut: parseShortcut(shortcut),
+		callback: callback
+	});
+	function parseShortcut(str){
+		var shift = false;
+		var ctrl = false;
+		var key = -1;
+		if (str.indexOf('+') > -1){
+			var comps = str.split('+');
+			shift = comps[0].toLowerCase() == 'shift';
+			ctrl = comps[0].toLowerCase() == 'ctrl';
+			key = comps[1].toLowerCase().charCodeAt(0);
 		}
 		else{
-
+			key = str.toLowerCase().charCodeAt(0);
 		}
+		return {
+			shift: shift,
+			ctrl: ctrl,
+			key: key
+		};
 	}
+	var _byui = this;
+	$(window).bind('keypress', function(e){
+		var code = String.fromCharCode(e.keyCode).toLowerCase().charCodeAt(0);
+		for (var i = 0; i < _byui.fn._internal.shortcuts.length; i++){
+			var c = _byui.fn._internal.shortcuts[i];
+			if (e.shiftKey != c.shortcut.shift) continue;
+			if (e.ctrlKey != c.shortcut.ctrl) continue;
+			if (code == c.shortcut.key) c.callback();
+		}
+	});
+});
 
-	return result;
+byui.shortcut('shift+a', function(){
+	console.log('yup');
 });
 byui.fn('asName', function(){
 	switch (this.type()){
@@ -1985,47 +643,32 @@ byui.fn('str', function(){
 		default: return this.context + '';
 	}
 });
-/**
- * byui().addFunc(function(){});
- */
-byui.fn('addFunc', function(func){
-	if (byui.fn._internal.getType(this.context) != 'array') this.context = [];
-	this.context.push(func);
+byui.extend('thread', function(){
+	return (function(){function g(c){this.s=Math.max(2,c|0);this.j=[];this.a=this.g=0;this.b={start:0,end:0,time:0}}var h=window.URL||window.webkitURL;if(!h)throw Error("This browser does not support Blob URLs");if(!window.Worker)throw Error("This browser does not support Web Workers");g.prototype.o={JSON:function(){var c=func;self.addEventListener("message",function(d){d=d.data;for(var b=new DataView(d),a=d.byteLength,e=Array(a),f=0;f<a;f++)e[f]=String.fromCharCode(b.getUint8(f));b=JSON.parse(e.join(""));b=
+c.apply(c,b);try{d=JSON.stringify(b)}catch(g){throw Error("Parallel function must return JSON serializable response");}a="undefined"===typeof d?0:d.length;e=new ArrayBuffer(a);b=new DataView(e);for(f=0;f<a;f++)b.setUint8(f,d.charCodeAt(f)&255);self.postMessage(e,[e]);self.close()})},i:function(){var c=func;self.addEventListener("message",function(d){var b=d.data;d=new DataView(b);for(var b=b.byteLength/4,a=Array(b),e=0;e<b;e++)a[e]=d.getInt32(4*e);a=c.apply(c,a);a instanceof Array||(a=[a]);var b=
+a.length,f=new ArrayBuffer(4*b);d=new DataView(f);for(e=0;e<b;e++)d.setInt32(4*e,a[e]);self.postMessage(f,[f]);self.close()})},h:function(){var c=func;self.addEventListener("message",function(d){var b=d.data;d=new DataView(b);for(var b=b.byteLength/8,a=Array(b),e=0;e<b;e++)a[e]=d.getFloat64(8*e);a=c.apply(c,a);a instanceof Array||(a=[a]);var b=a.length,f=new ArrayBuffer(8*b);d=new DataView(f);for(e=0;e<b;e++)d.setFloat64(8*e,a[e]);self.postMessage(f,[f]);self.close()})}};g.prototype.m={JSON:function(c){try{var d=
+JSON.stringify(c)}catch(e){throw Error("Arguments provided to parallel function must be JSON serializable");}len=d.length;c=new ArrayBuffer(len);for(var b=new DataView(c),a=0;a<len;a++)b.setUint8(a,d.charCodeAt(a)&255);return c},i:function(c){len=c.length;for(var d=new ArrayBuffer(4*len),b=new DataView(d),a=0;a<len;a++)b.setInt32(4*a,c[a]);return d},h:function(c){len=c.length;for(var d=new ArrayBuffer(8*len),b=new DataView(d),a=0;a<len;a++)b.setFloat64(8*a,c[a]);return d}};g.prototype.l={JSON:function(c){var d=
+new DataView(c);c=c.byteLength;for(var b=Array(c),a=0;a<c;a++)b[a]=String.fromCharCode(d.getUint8(a));if(b.length)return JSON.parse(b.join(""))},i:function(c){var d=new DataView(c);c=c.byteLength/4;for(var b=Array(c),a=0;a<c;a++)b[a]=d.getInt32(4*a);return b},h:function(c){var d=new DataView(c);c=c.byteLength/8;for(var b=Array(c),a=0;a<c;a++)b[a]=d.getFloat64(8*a);return b}};g.prototype.c=function(c,d,b,a){this.a||(this.b.start=(new Date).valueOf());if(this.a<this.s){this.a++;c=new Worker(c);d=this.m[b](d);
+var e=this.l[b],f=this;c.addEventListener("message","JSON"===b?function(b){a.call(f,e(b.data));f.ready()}:function(b){a.apply(f,e(b.data));f.ready()});c.postMessage(d,[d])}else this.g++,this.j.push([c,d,b,a])};g.prototype.ready=function(){this.a--;this.g?(this.c.apply(this,this.j.shift()),this.g--):this.a||(this.b.end=(new Date).valueOf(),this.b.time=this.b.end-this.b.start)};g.prototype.f=function(c,d){var b=c.name,a=c.toString();if(!b)for(b="$"+(10*Math.random()|0);-1!==a.indexOf(b);)b+=10*Math.random()|
+0;b=this.o[d].toString().replace(/^.*?[\n\r]+/gi,"").replace(/\}[\s]*$/,"").replace(/\/\*\*\/name\/\*\*\//gi,b).replace(/\/\*\*\/func\/\*\*\//gi,a);return h.createObjectURL(new Blob([b],{type:"text/javascript"}))};g.prototype.process=function(c,d){var b=this.f(c,"JSON"),a=this;return function(){a.c(b,[].slice.call(arguments),"JSON",d)}};g.prototype.processInt32=function(c,d){var b=this.f(c,"Int32"),a=this;return function(){a.c(b,[].slice.call(arguments),"Int32",d)}};g.prototype.processFloat64=function(c,
+d){var b=this.f(c,"Float64"),a=this;return function(){a.c(b,[].slice.call(arguments),"Float64",d)}};return g})();
 });
 
 /**
- * byui().start();
- */
-byui.fn('start', function(){
-	if (!this.threadPoolSetup) this.poolSetup();
-	var _this = this;
-	for (var i = 0; i < _this.threadPoolSetup.total; i++){
-		(function(idx){
-			setTimeout(function(){
-				if (byui.fn._internal.getType(_this.context[idx]) == 'function'){
-					_this.context[idx]();
-					if (++_this.threadPoolSetup.spot == _this.threadPoolSetup.total){
-						if (_this.threadPoolSetup.init.done) _this.threadPoolSetup.init.done(_this.threadPoolSetup.error, _this.threadPoolSetup.success);
-					}
-				}
-			}, 10);
-		})(i);
-	}
-})
-
-/**
  * obj = {
- * 	done: func
+ * 		threads: 2,
+ * 		calls: [[func, callback], [func, callback]]
  * }
  */
-byui.fn('poolSetup', function(obj){
-	if (!byui.fn._internal.getType(obj) == 'object') throw 'Invalid ajaxPool, expected object';
-	this.threadPoolSetup = {
-		init: obj,
-		total: this.context.length,
-		spot: 0,
-		success: {},
-		error: []
+byui.extend('threadPool', function(obj){
+	if (!obj) throw new Error('Invalid thread config');
+	if (!obj.calls) throw new Error('Invalid calls');
+	var params = obj;
+	var num = params.threads ? params.threads : 2;
+	var MT = new (byui.thread())(num);
+	for (var i = 0; i < params.calls.length; i++){
+		if (params.calls[i].length != 2) throw new Error('Invalid thread call setup');
+		MT.process(params.calls[i][0], params.calls[i][1])();
 	}
 });
 byui.fn('url', function(action, param){
@@ -2089,7 +732,7 @@ byui.extend('get', function(name){
 
 byui.extend('type', function(obj){
 	return byui.fn._internal.getType(obj);
-})
+});
 byui.extend('createNode', function(name, obj){
 	var keys = Object.keys(obj);
 	var xml = $('<' + name + '></' + name + '>');

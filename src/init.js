@@ -82,7 +82,8 @@ window.byui = (function(){
 		regex: {
 			SPACE: / /g,
 			ALL_NUMBERS: /[0-9]+$/g
-		}
+		},
+		shortcuts: []
 	}
 
 	_byui.fn.type = function(expected){
