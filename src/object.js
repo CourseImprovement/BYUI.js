@@ -38,3 +38,7 @@ byui.extend('createObject', function(node){
 	}
 	return result;
 });
+
+byui.extend('default', function(base, param){
+	
+});

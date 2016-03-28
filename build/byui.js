@@ -397,6 +397,31 @@ byui.fn('csv', function(obj){
 	}
 	return this;
 })
+/**
+ * byui(csv).graph({
+ * 		graph: {
+ * 			margin: {
+	 * 			top: #,
+	 * 			left: #,
+	 * 			bottom: #,
+	 * 			right: #
+	 * 		},
+	 * 		width: #,
+	 * 		height: #
+ * 		},
+ * 		x: {
+ * 			format: ''
+ * 		},
+ * 		y: {
+ * 			format: ''
+ * 		}
+ * })
+ */
+byui.fn('graph', function(p){
+	var params = p;
+	if (!window.d3) throw 'Please import d3';
+
+});
 byui.fn('sum', function(){
 	switch (this.type()){
 		case 'array': {
@@ -499,6 +524,10 @@ byui.extend('createObject', function(node){
 		}
 	}
 	return result;
+});
+
+byui.extend('default', function(base, param){
+	
 });
 byui.extend('shortcut', function(shortcut, callback){
 	if (byui.fn._internal.getType(shortcut) != 'string') throw 'Expected string';
