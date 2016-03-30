@@ -39,6 +39,45 @@ byui.extend('createObject', function(node){
 	return result;
 });
 
-byui.extend('default', function(base, param){
+/**
+ * base = {
+ * 		graph: {
+ * 			margin: {
+ * 			top: 30,
+ * 			left: 30,
+ * 			bottom: 30,
+ * 			right: 30
+ * 		},
+ * 		width: 500,
+ * 		height: 300
+ * 		},
+ * 		x: {
+ * 			format: '02d'
+ * 		},
+ * 		y: {
+ * 			format: '0.0%'
+ * 		}
+ * };
+ */
+byui.extend('default', function(param, base){
+	var type = byui.type(param);
+
+	if (type == "object") {
+		var keys = Object.keys(base);
+		var len = keys.length;
+
+		for (var i = 0; i < len; ++i) {
+			var key = keys[i];
+
+			if (param[key] != undefined) {
+				if (byui.type(base[key]) == "object") {
+					base[key] = byui.default(param[key], base[key]);
+				} else {
+					base[key] = param[key];
+				}
+			}
+		}
+	}
 	
+	return base;
 });
